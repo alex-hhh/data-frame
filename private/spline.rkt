@@ -1,19 +1,20 @@
 #lang typed/racket/base
+
 ;; spline.rkt -- construct spline interpolation functions from data points
-
-;; This file is part of data-frame
-;; Copyright (c) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
-
+;;
+;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
+;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or (at your
 ;; option) any later version.
-
+;;
 ;; This program is distributed in the hope that it will be useful, but WITHOUT
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
 ;; License for more details.
-
+;;
 ;; You should have received a copy of the GNU Lesser General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -160,8 +161,8 @@
 ;; slope as the first and last data point.
 (: spline (-> Data-Series (-> Real (U False Real))))
 (define (spline data-series)
-  (when (or (and (vector? data-series) (< (vector-length data-series) 2))
-            (and (list? data-series) (< (length data-series) 2)))
+  (when (or (and (vector? data-series) (< (vector-length data-series) 3))
+            (and (list? data-series) (< (length data-series) 3)))
     (raise-argument-error
      'spline "data series needs 2 or more points" data-series))
   (define spline-terms (poly-terms data-series))
@@ -169,16 +170,16 @@
     (let loop ([sterms spline-terms])
       (match-define (vector x0 y0 x1 y1 k0 k1 a b) (car sterms))
       (cond
+        ;; At each of the endpoints, the value of the spline is y0 or y1
+        ;; respectively (the spline goes through the specified points.
+        ((= x x0) y0)
+        ((= x x1) y1)
         ;; Before the first point, spline turns into a straight line, with k0
         ;; as the slope
         ((< x x0)
          (+ (* k0 x) (- y0 (* k0 x0))))
-        ;; At each of the endpoints, the value of the spline is y0 or y1
-        ;; respectively (the spline goes through the specified points.
-        ((eqv? x x0) y0)
-        ((eqv? x x1) y1)
         ;; Between these points, we interpolate according to the polynomial.
-        ((< x0 x x1)
+        ((<= x0 x x1)
          (let* ((t (/ (- x x0) (- x1 x0)))
                 (^t (- 1 t)))
            (+ (* t y1) (* ^t y0)

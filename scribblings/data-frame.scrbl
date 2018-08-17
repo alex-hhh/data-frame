@@ -4,6 +4,7 @@
                     racket/contract
                     math/statistics
                     plot
+                    plot/utils
                     db]]
 
 @title{data-frame}
@@ -13,8 +14,10 @@
 
 A data frame is a data structure used to hold data in tables with rows
 and columns.  It is meant for conveninent access and manipulation of
-relatively large data sets, however these data sets must fit into the
-process memory.
+relatively large data sets (however these data sets must fit into the
+process memory).  The package also provides functions for loading and
+saving data from data frames as well as several utilities and helper
+for statistical calculations, plotting and curve fitting.
 
 @section{Rationale}
 
@@ -316,7 +319,7 @@ Set the property @racket[key] to @racket[value] inside the data frame
 
 @defproc[(df-get-property (df data-frame?)
                           (key symbol?)
-                          (default (-> any/c) (lambda () #f)))
+                          (default any/c (lambda () #f)))
                           any/c]{
 
 Return the value for the property @racket[key] in the data frame
@@ -650,6 +653,90 @@ Return the quantiles for the @racket[series] in the data frame
 
 }
 
+@section{Least Squares Fitting}
+
+@defstruct[least-squares-fit ([type (or/c 'linear 'polynomial 'power 'exponential 'logarithmic)]
+                              [coefficients (listof real?)]
+                              [residual (or/c #f real?)]
+                              [fn (-> real? real?)])]{
+
+Return value for the @racket[df-least-squares-fit] function,
+containing the fiting mode and coefficients for the function. The
+structure can be applied directly as a procedure and acts as the fit
+function.
+
+}
+
+@defproc[(df-least-squares-fit (df data-frame?) (xseries string?) (yseries string?)
+         (#:start start exact-nonnegative-integer 0)
+         (#:stop stop exact-nonnegative-integer (df-row-count df))
+         (#:mode mode (or/c 'linear 'polynomial 'poly 'power 'exponential 'exp 'logarithmic 'log) 'linear)
+         (#:polynomial-degree degree exact-nonnegative-integer 2)
+         (#:residual? residual? boolean? #f)
+         (#:annealing? annealing? boolean #f)
+         (#:annealing-iterations iterations exact-nonnegative-integer? 500))
+         least-squares-fit?]{
+
+Return a best fit function for the @racket[xseries] and
+@racket[yseries] in the data frame @racket[df]. This function returns
+a @racket[least-squares-fit] structure instance.  The instance can be
+applied directly as a function, being the best fit function for the
+input data.
+
+@racket[start] and @racket[stop] specify the start and end position in
+the series, by default all values are considered for the fit.
+
+@racket[mode] determines the type of the function being fitted and can
+have one of the following values:
+
+@itemize[
+
+@item{@racket['linear] -- a function Y = a * X + b is fitted where 'a'
+        and 'b' are fitted; this is equivalent of fitting a
+        'polynomial of degree 1 (see below)}
+
+@item{@racket['polynomial] or @racket['poly] -- a polynomial Y = a0 +
+        a1 * X + a2 * X^2 + ... is fitted.  The degree of the
+        polynomial is specified by the @racket[degree] parameter, by
+        default this is 2.}
+
+@item{@racket['exponential] or @racket['exp] -- a function of Y = a *
+        e ^ (b * X) + c is fitted.  Note that this fit is not very
+        good, and annealing needs to be used to improve it (see below)}
+
+@item{@racket['logarithmic] or @racket['log] -- a function of type Y =
+        a + b * ln(X) is fitted.  This will only return a "real" fit
+        function (as opposed to an imaginary one) if all values in
+        YSERIES are positive}
+
+@item{@racket['power] -- a function of type Y = a * X ^ b is
+        fitted. This will only return a "real" fit function (as
+        opposed to an imaginary one) if all values in YSERIES are
+        positive.  Note that this fit is not very good, and annealing
+        needs to be used to improve it (see below)}
+
+]
+
+@racket[residual?] when @racket[#t] indicates that the residual value
+is also returned in the `least-squares-fit` structure.  Setting it to
+#f will avoid some unnecessary computations.
+
+@racket[annealing?] when @racket[#t] indicates that the fit
+coefficients should be further refined using the @racket[annealing]
+function.  This is only used for @racket['exponential] or
+
+@racket['power] fit functions as these ones do not produce "best fit"
+coefficients -- I don't know why, I am not a mathematician, I only
+used the formulas.  Using annealing will significantly improve the fit
+for these functions, but will still not determine the best one.  Note
+that the annealing algorithm is probabilistic, so applying it a second
+time on the same arguments will produce a slightly different result.
+
+@racket[iterations] represents the number of annealing iterations, see
+the #:iterations parameter to the `annealing` function.
+
+}
+
 @section{Histograms and histogram plots}
 
 @defproc[(df-histogram (df data-frame?)
@@ -688,6 +775,10 @@ samples from 0 to @racket[bucket-width].
 @racket[as-percentage?] determines if the data in the histogram
 represents a percentage (all ranks add up to 100) or it is the rank of
 each slot.
+
+In the resulting histogram, samples that are numbers or strings will
+be sorted.  In addition, if the samples are numbers, empty slots will
+be created so that the buckets are also consecutive.
 
 }
                     

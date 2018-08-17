@@ -1,5 +1,7 @@
 # data-frame
 
+[![Build Status](https://travis-ci.org/alex-hhh/data-frame.svg?branch=master)](https://travis-ci.org/alex-hhh/data-frame)
+
 A data frame implementation for Racket.  This is vaguely inspired by various
 other data frame implementations from other programming languages and
 environments.  However, this implementation follows its own path and does not

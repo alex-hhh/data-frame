@@ -1,19 +1,20 @@
 #lang racket/base
+
 ;; df.rkt -- data frame implementation and basic routines
-
-;; This file is part of data-frame
-;; Copyright (c) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
-
+;;
+;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
+;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or (at your
 ;; option) any later version.
-
+;;
 ;; This program is distributed in the hope that it will be useful, but WITHOUT
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
 ;; License for more details.
-
+;;
 ;; You should have received a copy of the GNU Lesser General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -196,7 +197,7 @@
   (define generators
     (for/list ([n (in-list series)])
       (let ((c (df-get-series df n)))
-        (in-series c start stop))))
+        (in-series c start stop (if (<= start stop) 1 -1)))))
   (in-values-sequence (apply in-parallel generators)))
 
 ;; Return a sequence that produces values from a list of SERIES between START
@@ -216,7 +217,7 @@
   (define generators
     (for/list ([n (in-list series)])
       (let ((c (df-get-series df n)))
-        (in-series c start stop))))
+        (in-series c start stop (if (<= start stop) 1 -1)))))
   (apply in-parallel generators))
 
 ;; Return a vector where each element is a vector containing values from
@@ -433,8 +434,8 @@
 ;; existing series.  The data for the series is created using `df-map` by
 ;; applying VALUE-FN on BASE-SERIES and the new data is added to the data
 ;; frame.  See `df-map` for notes on the VALUE-FN.
-(define (df-add-derived df name base-seriess value-fn)
-  (define data (df-map df base-seriess value-fn))
+(define (df-add-derived df name base-series value-fn)
+  (define data (df-map df base-series value-fn))
   (define col (make-series name #:data data))
   (df-add-series df col))
 
@@ -499,7 +500,7 @@
 
 ;;............................................................. provides ....
 
-(define index/c exact-nonnegative-integer?)
+(define index/c (or/c -1 exact-nonnegative-integer?))
 (define mapfn/c (or/c (-> any/c any/c) (-> any/c any/c any/c)))
 (define foldfn/c (or/c (-> any/c any/c any/c) (-> any/c any/c any/c any/c)))
 
@@ -510,7 +511,7 @@
  (df-contains? (->* (data-frame?) () #:rest (listof string?) boolean?))
  (df-contains/any? (->* (data-frame?) () #:rest (listof string?) boolean?))
  (df-put-property (-> data-frame? symbol? any/c any/c))
- (df-get-property (->* (data-frame? symbol?) ((-> any/c)) any/c))
+ (df-get-property (->* (data-frame? symbol?) (any/c) any/c))
  (df-del-property (-> data-frame? symbol? any/c))
  (df-row-count (-> data-frame? exact-nonnegative-integer?))
  (df-select (->* (data-frame? string?) (#:filter (or/c #f (-> any/c any/c))

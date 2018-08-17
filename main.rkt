@@ -1,6 +1,6 @@
 #lang racket/base
 ;; This file is part of data-frame
-;; Copyright (c) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
 
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -25,7 +25,8 @@
          "private/histogram.rkt"
          "private/meanmax.rkt"
          "private/scatter.rkt"
-         "private/gpx.rkt")
+         "private/gpx.rkt"
+         "private/least-squares-fit.rkt")
 
 (provide (all-from-out "private/df.rkt")
          (all-from-out "private/series.rkt")
@@ -37,10 +38,11 @@
          (all-from-out "private/histogram.rkt")
          (all-from-out "private/meanmax.rkt")
          (all-from-out "private/scatter.rkt")
-         (all-from-out "private/gpx.rkt"))
+         (all-from-out "private/gpx.rkt")
+         (all-from-out "private/least-squares-fit.rkt"))
 
-(module+ test
-  (require rackunit))
+;; raco setup --check-pkg-deps --pkgs data-frame
+;; raco test --no-run-if-absent --package data-frame
 
 ;; Notice
 ;; To install (from within the package directory):
@@ -62,12 +64,6 @@
 ;;
 ;; See the current version of the racket style guide here:
 ;; http://docs.racket-lang.org/style/index.html
-
-;; Code here
-
-(module+ test
-  ;; Tests to be run with raco test
-  )
 
 (module+ main
   ;; Main entry point, executed when run with the `racket` executable or DrRacket.

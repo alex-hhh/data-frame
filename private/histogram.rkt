@@ -1,23 +1,24 @@
 #lang racket/base
+
 ;; histogram.rkt -- histograms and histogram plots for data frames
-
-;; This file is part of data-frame
-;; Copyright (c) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
-
+;;
+;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
+;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or (at your
 ;; option) any later version.
-
+;;
 ;; This program is distributed in the hope that it will be useful, but WITHOUT
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
 ;; License for more details.
-
+;;
 ;; You should have received a copy of the GNU Lesser General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require plot
+(require plot/no-gui
          plot/utils
          racket/contract
          racket/list
@@ -44,12 +45,8 @@
   ;; value is the start of the interval (as opposed to the middle of the
   ;; interval if `exact-round` would be used.
   (define (val->bucket v)
-    ;; NOTE: if the bucket-width is left as 1, we don't do the division, this
-    ;; allows calculating histograms on things that are not numbers
-    ;; (e.g. strings).
-    (if (eqv? bucket-width 1)
-        v
-        (exact-truncate (/ v bucket-width))))
+    ;; NOTE: has to work for non real values (e.g. strings!)
+    (if (real? v) (exact-truncate (/ v bucket-width)) v))
 
   (define (weighted-binning buckets prev-val val)
     (when prev-val
@@ -172,6 +169,10 @@
 ;;
 ;; #:as-percentage? determines if the data in the histogram represents a
 ;; percentage (adding up to 100) or it is the rank of each slot.
+;;
+;; In the resulting histogram, samples that are numbers or strings will be
+;; sorted.  In addition, if the samples are numbers, empty slots will be
+;; created so that the buckets are also consecutive.
 ;;
 (define (df-histogram df series
                       #:weight-series [weight (df-get-default-weight-series df)]

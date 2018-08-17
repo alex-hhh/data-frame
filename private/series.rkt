@@ -1,19 +1,20 @@
 #lang racket/base
+
 ;; series.rkt -- data frame series and related functions
-
-;; This file is part of data-frame
-;; Copyright (c) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
-
+;;
+;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
+;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or (at your
 ;; option) any later version.
-
+;;
 ;; This program is distributed in the hope that it will be useful, but WITHOUT
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
 ;; License for more details.
-
+;;
 ;; You should have received a copy of the GNU Lesser General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -226,12 +227,25 @@
   (match-define (series _ data beg end _ _ _) c)
   (define s (+ start beg))
   (define e (+ stop beg))
-  (when (or (< s beg) (> s end))
+  (if (<= start stop)
+      (begin
+        (unless (<= beg s end)
     (raise-range-error
-     'in-series "vector" "" start data 0 (- end beg)))
-  (when (or (< e beg) (> e end))
+           'in-series "vector1" "" start data 0 (- end beg)))
+        (unless (<= beg e end)
     (raise-range-error
-     'in-series "vector" "" stop data 0 (- end beg)))
+           'in-series "vector2" "" stop data 0 (- end beg)))
+        (unless (> step 0)
+          (raise-argument-error 'step "positive" step)))
+      (begin
+        (unless (<= (sub1 beg) s end)
+          (raise-range-error
+           'in-series "vector3" "" start data 0 (- end beg)))
+        (unless (<= (sub1 beg) e end)
+          (raise-range-error
+           'in-series "vector4" "" stop data 0 (- end beg)))
+        (unless (< step 0)
+          (raise-argument-error 'step "negative" step))))
   (in-vector (series-data c) s e step))
 
 ;; Find the index of VALUE in the data series C.  The series has to be sorted,
@@ -293,8 +307,8 @@
  (series-set! (-> series? exact-nonnegative-integer? any/c any/c))
  (series-push-back (-> series? any/c any/c))
  (in-series (->* (series?) (exact-nonnegative-integer?
-                            exact-nonnegative-integer?
-                            exact-nonnegative-integer?)
+                            (or/c -1 exact-nonnegative-integer?)
+                            exact-integer?)
                  sequence?))
  (series-index-of (-> series? any/c (or/c #f exact-nonnegative-integer?)))
  (series-bless-sorted (-> series? (or/c #f (-> any/c any/c boolean?)) any/c))

@@ -1,23 +1,24 @@
 #lang racket/base
+
 ;; scatter.rkt -- utilities for scatter plots
-
-;; This file is part of data-frame
-;; Copyright (c) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
-
+;;
+;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
+;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or (at your
 ;; option) any later version.
-
+;;
 ;; This program is distributed in the hope that it will be useful, but WITHOUT
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
 ;; License for more details.
-
+;;
 ;; You should have received a copy of the GNU Lesser General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require plot
+(require plot/no-gui
          plot/utils
          racket/class                   ; ->pen-color
          racket/contract
@@ -38,12 +39,14 @@
     (define lookup-val
       (+ (key-fn (vector-ref data-series start-index))
          amount))
-    (define index
-      (bsearch data-series lookup-val
-               #:start start-index
-               #:stop (+ start-index (exact-truncate amount) (sgn amount))
-               #:key key-fn))
-    (if (< index (vector-length data-series))
+    (define index (bsearch data-series lookup-val #:key key-fn))
+    ;; NOTE: `bsearch` will return 0 if `lookup-val` is smaller than the first
+    ;; item in the vector, so we need one extra check in that case, so we drop
+    ;; values from the start of the series if the shift is beyond the start of
+    ;; the series.
+    (if (and (< index (vector-length data-series))
+             (or (> index 0)
+                 (>= lookup-val (key-fn (vector-ref data-series 0)))))
         (vector-ref (vector-ref data-series index) 1)
         #f))
 

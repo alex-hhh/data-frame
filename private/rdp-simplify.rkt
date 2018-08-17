@@ -1,24 +1,24 @@
 #lang racket/base
+
 ;; rdp-simplify.rkt -- Ramer–Douglas–Peucker line simplification algorithm
-
-;; This file is part of data-frame
-;; Copyright (c) 2018 Alex Harsanyi <AlexHarsanyi@gmail.com>
-
+;;
+;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
+;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
 ;; the Free Software Foundation, either version 3 of the License, or (at your
 ;; option) any later version.
-
+;;
 ;; This program is distributed in the hope that it will be useful, but WITHOUT
 ;; ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 ;; FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
 ;; License for more details.
-
+;;
 ;; You should have received a copy of the GNU Lesser General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require racket/match
-         racket/vector
+(require racket/vector
          racket/contract)
 
 ;; Return a function which calculates the perpendicular distance of a point to
@@ -55,6 +55,12 @@
 ;; not needed after the simplification, it will be faster and more memory
 ;; efficient to destroy the original data set.
 ;;
+;; KEEP represents a list of positions in the data which will not be
+;; simplified, and will be kept in the output.  When empty, it is only
+;; guaranteed that the first and last elements of the input data are kept.
+;; When not empty, two points around each KEEP position are kept: the point
+;; itself and the one that immediately follows it.
+;;
 ;; NOTE: RDP-SIMPLIFY can be used to reduce the size of a data set to be
 ;; plotted by the LINES plot renderer, while still keeping the look of the
 ;; resulting plot the same, or nearly the same.  This can make plotting
@@ -65,7 +71,8 @@
 ;;
 (define (rdp-simplify data
                       #:epsilon [eps 0.1]
-                      #:destroy-original? [destroy? #f])
+                      #:destroy-original? [destroy? #f]
+                      #:keep-positions [keep '()])
 
   (define dropped 0)
   (define wdata (if destroy? data (vector-copy data)))
@@ -74,8 +81,7 @@
   ;; between the START and STOP indexes.  STOP is inclusive.  The algorithm
   ;; updates WDATA in place, replacing data that should be removed with #f.
 
-  (let loop ((start 0)
-             (stop (sub1 (vector-length wdata))))
+  (define (loop start stop)
     (when (> (- stop start) 1)
       (let ((distance (perpendicular-distance
                        (vector-ref wdata start)
@@ -98,10 +104,17 @@
                 (vector-set! wdata index #f))
               (set! dropped (+ dropped (- stop (add1 start)))))))))
 
+  (let ((limit (vector-length wdata)))
+    (if (null? keep)
+        (loop 0 (sub1 limit))
+        (let ((skeep (sort (append (list -1) keep (list (sub1 limit))) <)))
+          (for ([start skeep] [stop (cdr skeep)] #:when (and (>= start 0) (< stop limit)))
+            (loop (add1 start) stop)))))
+
   ;; Construct the simplified data set by omitting all the #f values from
   ;; wdata
   (for/vector #:length (- (vector-length wdata) dropped)
-              ([p (in-vector wdata)] #:when p)
+      ([p (in-vector wdata)] #:when p)
     p))
 
 
@@ -109,5 +122,7 @@
 
 (provide/contract
  (rdp-simplify (->* (vector?)
-                    (#:epsilon (and/c real? positive?) #:destroy-original? boolean?)
+                    (#:epsilon (and/c real? positive?)
+                     #:destroy-original? boolean?
+                     #:keep-positions (listof exact-nonnegative-integer?))
                     (vectorof vector?))))
