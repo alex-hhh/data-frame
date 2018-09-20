@@ -504,6 +504,10 @@
 (define mapfn/c (or/c (-> any/c any/c) (-> any/c any/c any/c)))
 (define foldfn/c (or/c (-> any/c any/c any/c) (-> any/c any/c any/c any/c)))
 
+(provide  index/c
+          mapfn/c
+          foldfn/c)
+
 (provide/contract
  (make-data-frame (-> data-frame?))
  (df-series-names (-> data-frame? (listof string?)))
