@@ -60,7 +60,7 @@
   (match-define (data-frame _ _ series delayed properties) df)
   ;; Materialize all lazy series
   (for ([c (hash-keys delayed)])
-    (df-get-series c))
+    (df-get-series df c))
   (data-frame
    (make-semaphore 1)
    #f
@@ -339,11 +339,15 @@
          #:interpolate (interpolate (lambda (t v1 v2)
                                       (+ (* (- 1 t) v1) (* t v2)))))
   (define index (df-index-of df base-series value))
-  (define slist (if (list? series) series (list series)))
+  (define slist (if (pair? series) series (list series)))
   (cond ((<= index 0)
-         (apply df-ref* df 0 slist))
+         (if (pair? series)
+             (apply df-ref* df 0 series)
+             (df-ref df 0 series)))
         ((>= index (df-row-count df))
-         (df-ref* df (sub1 (df-row-count df)) ))
+         (if (pair? series)
+             (apply df-ref* df (sub1 (df-row-count df)) series)
+             (df-ref df (sub1 (df-row-count df)) series)))
         (#t
          (let* ((pval (df-ref df (sub1 index) base-series))
                 (aval (df-ref df index base-series))

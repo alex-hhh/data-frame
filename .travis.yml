@@ -6,8 +6,9 @@ env:
   global:
     - RACKET_DIR=~/racket
     - DISPLAY=:99.0            # needed by the unit tests, see comment on xvfb
+    - PLTSTDERR='error warning@optimizer'
   matrix:
-    - RACKET_VERSION=7.0
+    - RACKET_VERSION=7.1
 
 matrix:
   allow_failures:

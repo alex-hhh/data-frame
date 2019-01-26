@@ -494,7 +494,19 @@
      (check equal? (df-lookup* df "col1" "col2" 1 4) '(3 0))
      (check equal? (df-lookup* df "col1" '("col1" "col2") 1 4) '(#(1 3) #(4 0)))
 
+     (check = (df-lookup/interpolated df "col1" "col2" 0) 3) ; out of range
+     (check = (df-lookup/interpolated df "col1" "col2" 1) 3) ; at the beginning
+     (check = (df-lookup/interpolated df "col1" "col2" 4) 0) ; at the end
+     (check = (df-lookup/interpolated df "col1" "col2" 5) 0) ; out of range
      (check < (abs (- (df-lookup/interpolated df "col1" "col2" 2.2) 1.8)) 0.001)
+
+     (check equal? (df-lookup/interpolated df "col1" '("col1" "col2") 0) #(1 3)) ; out of range
+     (check equal? (df-lookup/interpolated df "col1" '("col1" "col2") 1) #(1 3)) ; at the beginning
+     (check equal? (df-lookup/interpolated df "col1" '("col1" "col2") 4) #(4 0)) ; at the end
+     (check equal? (df-lookup/interpolated df "col1" '("col1" "col2") 5) #(4 0)) ; out of range
+     (let ((val (df-lookup/interpolated df "col1" '("col1" "col2") 2.2)))
+       (check < (abs (- (vector-ref val 0) 2.2)) 0.001)
+       (check < (abs (- (vector-ref val 1) 1.8)) 0.001))
 
      (check = (df-ref df 1 "col1") 2)
      (check equal? (df-ref* df 1 "col1" "col2") #(2 2))

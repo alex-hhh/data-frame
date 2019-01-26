@@ -31,11 +31,20 @@
 
 ;;............................................................. best avg ....
 
+;; Durations (in seconds) which are used to display "ticks" on plots.  These
+;; are considered important points (e.g. the 20 minutes MMAX power is of great
+;; interest to cyclists)
 (define important-mean-max-durations
   (list 10 15 30 45 60 75 90 (* 2 60) (* 3 60) (* 5 60) (* 10 60) (* 15 60)
         (* 20 60) (* 30 60) (* 45 60) (* 60 60)
         (* 90 60) (* 120 60) (* 180 60)))
 
+;; Generate a list of numbers (durations in seconds) between start and limit,
+;; which are used to calculate mean max values for a series -- it is not
+;; efficient to calculate MMAX for every second of a 5 hour bike ride and the
+;; mean max curve will not change quickly at higher duration anyway, so we
+;; just calculate it at certain points, closer together at lower values and
+;; spaced out at higher values.
 (define (generate-mean-max-durations start limit [growth-factor 1.05] [max-growth 300])
   (let loop ((series (list start)) (current start))
     (let ((nval (exact-round (* current growth-factor))))
@@ -48,22 +57,13 @@
           (reverse series)))))
 
 ;; Merge the durations produced by 'generate-mean-max-durations' with
-;; 'important-mean-max-durations'
+;; 'important-mean-max-durations' to obtain the final list of durations for
+;; which MEAN-MAX values are calculated.
 (define default-mean-max-durations
   (let loop ((result '())
              (fill (generate-mean-max-durations 10 (* 300 60) 1.2))
              (important important-mean-max-durations))
-    (cond ((and (null? fill) (null? important))
-           (reverse result))
-          ((null? fill)
-           (loop (cons (car important) result)
-                 fill
-                 (cdr important)))
-          ((null? important)
-           (loop (cons (car fill) result)
-                 (cdr fill)
-                 important))
-          (#t
+    (cond ((and (pair? fill) (pair? important))
            (let ((f (car fill))
                  (i (car important)))
              (cond ((= f i)
@@ -71,7 +71,15 @@
                    ((< f i)
                     (loop (cons f result) (cdr fill) important))
                    (#t
-                    (loop (cons i result) fill (cdr important)))))))))
+                    (loop (cons i result) fill (cdr important))))))
+          ((and (null? fill) (null? important))
+           (reverse result))
+          ((null? fill)
+           (append (reverse result) important))
+          ((null? important)
+           (append (reverse result) fill))
+          (#t
+           (error "Should not happen")))))
 
 ;; Plot ticks for the mean-max plot.  Produces ticks at
 ;; important-mean-max-durations locations (among other places).
