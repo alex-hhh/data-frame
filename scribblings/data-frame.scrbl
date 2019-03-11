@@ -221,57 +221,6 @@ be written out, by default all rows are written out.
 }
 
 
-@defproc[(df-read/gpx (input (or/c path-string? input-port?)))
-                      data-frame?]{
-
-Construct a data frame from the GPX document specified in
-@racket[input], which is either an input port or a string, in which
-case it denotes an input file.  The data frame will have "timestamp",
-"lat", "lon", "alt", "dst" and "grade" series, the last two series
-computed and not read from the GPX file.
-
-The data frame will also have the following properties:
-
-@itemize[
-
-@item{a @racket['name] property containing the name of the track
-segment, if this is present in the GPX file.}
-
-@item{a @racket['waypoints] property containing a list of waypoints,
-if they GPX track has any.  Each waypoint is represented as a list of
-TIMESTAMP, LAT, LON, ELEVATION and NAME}
-
-@item{a @racket['laps] property containing a list of timestamps
-corresponding to each way point in the waypoint list -- the laps
-property cannot be constructed correctly if the waypoints are missing
-a timestamp property.}]
-
-Only the first track segment in the GPX file will be read.}
-
-@defproc[(df-write/gpx (df data-frame?)
-                       (output (or/c path-string? output-port?))
-                       (#:name name (or/c #f string?)))
-                       any/c]{
-
-Export the GPS track from the data frame @racket[df] to
-@racket[output], which is either an output port or a string, in which
-case it denotes a file name.  The data frame is expected to contain
-the "timestamp", "lat", "lon" series, and optionally "alt" or "calt"
-(corrected altitude) series.
-
-The entire GPS track is exported as a single track segment.
-
-The @racket[laps] property, if present, is assumed to contain a list
-of timestamps and the positions corresponding to these timestamps are
-exported as way points.
-
-The name of the segment can be specified as the @racket[name]
-parameter. If this is @racket[#f], the @racket['name] property in the
-data frame is consulted, if that one is missing a default track name
-is used.
-
-}
-
 @section{Inspecting and extracting data}
 
 @defproc[(df-describe (df data-frame?)) any/c]{
@@ -866,3 +815,57 @@ transform a value of @racket[300] into the label @racket["5:00"].
 
 }
 
+@defmodule[data-frame/gpx]
+
+@section{Reading and writing GPX files}
+
+@defproc[(df-read/gpx (input (or/c path-string? input-port?)))
+                      data-frame?]{
+
+Construct a data frame from the GPX document specified in
+@racket[input], which is either an input port or a string, in which
+case it denotes an input file.  The data frame will have "timestamp",
+"lat", "lon", "alt", "dst" and "grade" series, the last two series
+computed and not read from the GPX file.
+
+The data frame will also have the following properties:
+
+@itemize[
+
+@item{a @racket['name] property containing the name of the track
+segment, if this is present in the GPX file.}
+
+@item{a @racket['waypoints] property containing a list of waypoints,
+if they GPX track has any.  Each waypoint is represented as a list of
+TIMESTAMP, LAT, LON, ELEVATION and NAME}
+
+@item{a @racket['laps] property containing a list of timestamps
+corresponding to each way point in the waypoint list -- the laps
+property cannot be constructed correctly if the waypoints are missing
+a timestamp property.}]
+
+Only the first track segment in the GPX file will be read.}
+
+@defproc[(df-write/gpx (df data-frame?)
+                       (output (or/c path-string? output-port?))
+                       (#:name name (or/c #f string?)))
+                       any/c]{
+
+Export the GPS track from the data frame @racket[df] to
+@racket[output], which is either an output port or a string, in which
+case it denotes a file name.  The data frame is expected to contain
+the "timestamp", "lat", "lon" series, and optionally "alt" or "calt"
+(corrected altitude) series.
+
+The entire GPS track is exported as a single track segment.
+
+The @racket[laps] property, if present, is assumed to contain a list
+of timestamps and the positions corresponding to these timestamps are
+exported as way points.
+
+The name of the segment can be specified as the @racket[name]
+parameter. If this is @racket[#f], the @racket['name] property in the
+data frame is consulted, if that one is missing a default track name
+is used.
+
+}

@@ -25,7 +25,6 @@
          "private/histogram.rkt"
          "private/meanmax.rkt"
          "private/scatter.rkt"
-         "private/gpx.rkt"
          "private/least-squares-fit.rkt")
 
 (provide (all-from-out "private/df.rkt")
@@ -38,7 +37,6 @@
          (all-from-out "private/histogram.rkt")
          (all-from-out "private/meanmax.rkt")
          (all-from-out "private/scatter.rkt")
-         (all-from-out "private/gpx.rkt")
          (all-from-out "private/least-squares-fit.rkt"))
 
 ;; raco setup --check-pkg-deps --pkgs data-frame
