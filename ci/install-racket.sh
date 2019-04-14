@@ -10,13 +10,18 @@ SCRIPT_NAME=${0##**/}
 # These variables can be set in the .travis.yml file, but we provide suitable
 # defaults.
 RACKET_DIR=${RACKET_DIR:=~/racket}
-RACKET_VERSION=${RACKET_VERSION:=7.0}
+RACKET_VERSION=${RACKET_VERSION:=7.2}
 RACKET_MINIMAL=${RACKET_MINIMAL:=0}
 
 # Helper variables to construct the download URL.
-BASE="https://mirror.racket-lang.org/installers"
-HBASE="http://plt.eecs.northwestern.edu/snapshots/current/installers"
-PBASE="http://pre-release.racket-lang.org/installers"
+
+# 10/04/2019 -- mirror.racket-lang.org is down, use Utah one
+#BASE="https://mirror.racket-lang.org/installers"
+BASE="https://www.cs.utah.edu/plt/installers"
+
+HBASE="https://plt.eecs.northwestern.edu/snapshots/current/installers"
+PBASE="https://pre-release.racket-lang.org/installers"
+CBASE="https://www.cs.utah.edu/plt/snapshots/current/installers" # Racket on Chez Scheme
 V=$RACKET_VERSION
 [[ "$RACKET_MINIMAL" = "1" ]] && M="minimal-" || M=""
 
@@ -26,6 +31,13 @@ case "$RACKET_VERSION" in
             URL="${HBASE}/min-racket-current-x86_64-linux-precise.sh"
         else
             URL="${HBASE}/racket-test-current-x86_64-linux-precise.sh"
+        fi
+        ;;
+    HEADCS)
+        if [[ "$RACKET_MINIMAL" = "1" ]]; then
+            URL="${CBASE}/min-racket-current-x86_64-linux-cs-xenial.sh"
+        else
+            URL="${CBASE}/racket-current-x86_64-linux-cs-xenial.sh"
         fi
         ;;
     PRERELEASE)
