@@ -19,6 +19,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (require racket/vector
+         racket/match
          racket/contract)
 
 ;; Return a function which calculates the perpendicular distance of a point to
@@ -26,17 +27,14 @@
 ;; with the first two elements being the X and Y component, they can have any
 ;; number of additional components.
 (define (perpendicular-distance p1 p2)
-  (define x1 (vector-ref p1 0))
-  (define y1 (vector-ref p1 1))
-  (define x2 (vector-ref p2 0))
-  (define y2 (vector-ref p2 1))
-  (define yd (- y2 y1))
-  (define xd (- x2 x1))
-  (define denom (sqrt (+ (* yd yd) (* xd xd))))
+  (match-define (vector x1 y1 _ ...) p1)
+  (match-define (vector x2 y2 _ ...) p2)
+  (define-values (delta-x delta-y) (values (- x2 x1) (- y2 y1)))
+  (define denom (sqrt (+ (* delta-y delta-y) (* delta-x delta-x))))
+  (define alpha (- (* x2 y1) (* y2 x1)))
   (lambda (p0)
-    (define x0 (vector-ref p0 0))
-    (define y0 (vector-ref p0 1))
-    (define nom (abs (- (+ (- (* yd x0) (* xd y0)) (* x2 y1)) (* y2 x1))))
+    (match-define (vector x0 y0 _ ...) p0)
+    (define nom (abs (+ (- (* delta-y x0) (* delta-x y0)) alpha)))
     (/ nom denom)))
 
 ;; Run the Ramer–Douglas–Peucker simplification algorithm on DATA, a (vectorof

@@ -282,7 +282,7 @@
   (define-values
     (timestamp distance)
     (for/fold ([timestamp #f] [distance #f])
-              (([plat plon ts] (in-data-frame df '("lat" "lon" "timestamp"))))
+              (([plat plon ts] (in-data-frame df "lat" "lon" "timestamp")))
       (if (and plat plon)
           (let ((dst (map-distance/degrees plat plon lat lon)))
             (if (or (not timestamp) (< dst distance))

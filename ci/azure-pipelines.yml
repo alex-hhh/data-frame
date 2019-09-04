@@ -9,7 +9,7 @@ pool:
 
 variables:
   PACKAGE_NAME: "data-frame"
-  RACKET_VERSION: 7.2
+  RACKET_VERSION: 7.4
   RACKET_DIR: $(Agent.BuildDirectory)/racket
   PLTSTDERR: 'error warning@optimizer'
 
