@@ -617,13 +617,27 @@
 
      (define df1 (df-read/csv sample-csv))
      (check equal? (sort (df-series-names df1) string<?) '("four" "one" "three" "two"))
-     (check = (df-row-count df1) 5)
+     (check = (df-row-count df1) 6)
      (check equal? (df-select* df1 "one" "two" "three" "four")
             #(#(1 2 3 4)
               #(4 5 6 "abc")
               #(7 8 9 "def,gh")
               #(10 11 12 "a,bc\" 123 \"d\"ef")
-              #(14 15 #f #f)))
+              #(14 15 #f #f)
+              #("16" "17" #f #f)))
+
+     ;; Read the same file again, note that the last row will now contain
+     ;; numbers, not strings
+     (define df1a (df-read/csv sample-csv #:quoted-numbers? #t))
+     (check equal? (sort (df-series-names df1a) string<?) '("four" "one" "three" "two"))
+     (check = (df-row-count df1a) 6)
+     (check equal? (df-select* df1a "one" "two" "three" "four")
+            #(#(1 2 3 4)
+              #(4 5 6 "abc")
+              #(7 8 9 "def,gh")
+              #(10 11 12 "a,bc\" 123 \"d\"ef")
+              #(14 15 #f #f)
+              #(16 17 #f #f)))
 
      ;; Try writing it out to file and reading from an input port, this is a
      ;; slightly different code path than writing to an output port.

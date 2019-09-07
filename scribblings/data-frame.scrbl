@@ -184,21 +184,28 @@ column from the result set will become a series in the data frame,
 }
 
 @defproc[(df-read/csv (input (or/c path-string? input-port?))
-                      (#:headers? headers? boolean?)
-                      (#:na na string?))
+                      (#:headers? headers? boolean? #t)
+                      (#:na na string? "")
+                      (#:quoted-numbers? quoted-numbers? boolean? #f))
                       data-frame?]{
+  
+  Read CSV data in a data frame from the @racket[input] which is either a port
+  or a string, in which case it is assumed to be a file name.  If
+  @racket[headers?]  is true, the first row in @racket[input] becomes the
+  names of the columns, otherwise, the columns will be named "col1", "col2",
+  etc.  The first row defines the number of columns: if subsequent rows have
+  fewer cells, they are padded with #f, if it has more, they are silently
+  truncated.
 
-Read CSV data in a data frame from the @racket[input] which is either
-a port or a string, in which case it is assumed to be a file name.  If
-@racket[headers?]  is true, the first row in @racket[input] becomes
-the names of the columns, otherwise, the columns will be named "col1",
-"col2", etc.  The first row defines the number of columns: if
-subsequent rows have fewer cells, they are padded with #f, if it has
-more, they are silently truncated.
+  @racket[na] represents the value in the CSV file that represents the "not
+  available" value in the data frame.  Strings @racket[equal?] to this value
+  will be replaced by @racket[#f].
 
-@racket[na] represents the value in the CSV file that represents the "not
-available" value in the data frame.  Strings @racket[equal?] to this value
-will be replaced by @racket[#f].
+  When @racket[quoted-numbers?] is @racket[#t], all quoted values in the CSV
+  file will be converted to numbers, if possible.  E.g. a value like "123"
+  will be converted to the number 123 if @racket[quoted-numbers?] is
+  @racket[#t], but will remain the string "123" if the parameter is
+  @racket[#f].
 
 }
 

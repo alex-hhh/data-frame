@@ -116,13 +116,14 @@
 ;; * if the trimmed string is empty or equal? to NA, return #f
 ;;
 ;; * if the trimmed string is enclosed in quotes, it is assumed to be a string
-;; an quotes are removed.
+;; and quotes are removed.  If quote-numbers? is #t, the string is tried to be
+;; decoded as a number anyway 
 ;;
 ;; * if it parses as a number, return the number
 ;;
 ;; * otherwise return it as a string.
 ;;
-(define (decode-value val na)
+(define (decode-value val na quoted-numbers?)
   (and val
        ;; string->number decodes #x #b and #o as hex, binary or octal. We
        ;; could also recognize 0x as hex, but we don't for now.
@@ -134,7 +135,8 @@
                  (>= n 2)
                  (eqv? #\" (string-ref trimmed 0))
                  (eqv? #\" (string-ref trimmed (sub1 n))))
-                (substring trimmed 1 (sub1 n)))
+                (let ((v (substring trimmed 1 (sub1 n))))
+                  (if quoted-numbers? (or (string->number v radix) v) v)))
                (#t
                 (or (string->number trimmed radix) trimmed))))))
 
@@ -144,7 +146,12 @@
 ;; defines the number of columns: if subsequent rows have fewer cells, they
 ;; are padded with #f, if it has more, they are silently truncated.  NA
 ;; determines the string that constitutes the "not available" value.
-(define (read-csv input headers? na)
+;;
+;; if quoted-numbers? is #t, it is assumed that numeric values are also quoted
+;; (e.g. "123") and will be decoded as numbers.  If it is #f, a value like
+;; "123" will remain a string.
+;; 
+(define (read-csv input headers? na quoted-numbers?)
   (define df (make-data-frame))
   (define series #f)
   (let loop ((line (read-line input 'any)))
@@ -161,14 +168,14 @@
                  ;; the remaining series.
                  (let ((shortfall (max 0 (- (vector-length series) (length slots)))))
                    (for ([s (in-vector series)] [v (in-list (append slots (make-list shortfall #f)))])
-                     (series-push-back s (decode-value v na))))
+                     (series-push-back s (decode-value v na quoted-numbers?))))
                  ;; First row
                  (if headers?
                      (let ((index 1))
                        (set! series
                              (for/vector ([h slots])
                                ;; Gracefully handle series with empty header names
-                               (let ((name (~a (decode-value h na))))
+                               (let ((name (~a (decode-value h na quoted-numbers?))))
                                  (unless name
                                    (set! name (~a "col" index))
                                    (set! index (add1 index)))
@@ -177,7 +184,7 @@
                        (set! series (for/vector ([idx (in-range (length slots))])
                                       (make-series (format "col~a" idx))))
                        (for ([s (in-vector series)] [v (in-list slots)])
-                         (series-push-back s (decode-value v na)))))))
+                         (series-push-back s (decode-value v na quoted-numbers?)))))))
            (loop (read-line input 'any))))))
 
 ;; Read CSV data in a data frame from the INP which is either a port or a
@@ -190,12 +197,12 @@
 ;; only empty cells are NA values, but this allows specifying an additional
 ;; string to represent NA values (some CSV exporters use "-" as the not
 ;; available value).
-(define (df-read/csv inp #:headers? (headers? #t) #:na (na ""))
+(define (df-read/csv inp #:headers? (headers? #t) #:na (na "") #:quoted-numbers? (qn? #f))
   (if (path-string? inp)
       ;; not 'text: we might read MAC text files on a Windows machine!
       (call-with-input-file inp #:mode 'text
-        (lambda (i) (read-csv i headers? na)))
-      (read-csv inp headers? na)))
+        (lambda (i) (read-csv i headers? na qn?)))
+      (read-csv inp headers? na qn?)))
 
 
 ;;............................................................. provides ....
@@ -206,5 +213,5 @@
                     #:rest (listof string?)
                     any/c))
  (df-read/csv (->* ((or/c path-string? input-port?))
-                   (#:headers? boolean? #:na string?)
+                   (#:headers? boolean? #:na string? #:quoted-numbers? boolean?)
                    data-frame?)))
