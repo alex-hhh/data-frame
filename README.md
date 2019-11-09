@@ -4,7 +4,7 @@
 
 ## Installation
 
-    racko pkg install data-frame
+    raco pkg install data-frame
 
 ## Overview
 
