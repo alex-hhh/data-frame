@@ -24,7 +24,6 @@
          racket/format
          racket/match
          racket/math
-         (only-in srfi/19/time string->date)
          xml
          "df.rkt"
          "exn.rkt"
@@ -70,23 +69,48 @@
 (define gpx-indent-string (make-parameter ""))
 (define gpx-export-series (make-parameter '("timestamp" "lat" "lon" "alt")))
 
-(define (gpx-timestamp timestamp)
+;; Convert the UTC timestamp (in seconds) into a string in the format
+;; "YYYY-MM-DDTHH-MM-SSZ"
+(define (seconds->gpx-timestamp utc)
 
   (define (fmt num width)
     (~a #:width width #:align 'right #:pad-string "0" num))
 
-  (let ((d (seconds->date timestamp #f)))
+  (let ((d (seconds->date utc #f)))
     (string-append
      (fmt (date-year d) 4) "-" (fmt (date-month d) 2) "-" (fmt (date-day d) 2)
      "T"
      (fmt (date-hour d) 2) ":" (fmt (date-minute d) 2) ":" (fmt (date-second d) 2) "Z")))
+
+(define timestamp-rx
+  #px"([[:digit:]]+)-([[:digit:]]+)-([[:digit:]]+)T([[:digit:]]+):([[:digit:]]+):([[:digit:]]+(.[[:digit:]]+)?)Z")
+
+;; Parse a timestamp in the format "YYYY-MM-DDTHH-MM-SS.SSSZ" and return the
+;; UTC seconds corresponding to that timestamp. Note a fractional timestamp
+;; might be returned, if the string contains a fractional timestamp
+(define (gpx-timestamp->seconds ts)
+  (match (regexp-match timestamp-rx ts)
+    ((list _ year month day hour minute seconds rest ...)
+     (define s (string->number seconds))
+     (define fractional (- s (exact-truncate s)))
+     (+ fractional (date->seconds
+                    (make-date (exact-truncate s)
+                               (string->number minute)
+                               (string->number hour)
+                               (string->number day)
+                               (string->number month)
+                               (string->number year)
+                               ;; These are ignored by date->seconds
+                               0 0 #f 0)
+                    #f)))
+    (_ #f)))
 
 ;; Write to (current-output-port) the XML content for a GPX track point.
 (define (gpx-emit-trkpt lat lon alt timestamp)
   (let ((indent (gpx-indent-string)))
     (write-string (format "~a<trkpt lat=\"~a\" lon=\"~a\">~%" indent lat lon))
     (write-string (format "~a  <ele>~a</ele>\n" indent alt))
-    (write-string (format "~a  <time>~a</time>\n" indent (gpx-timestamp timestamp)))
+    (write-string (format "~a  <time>~a</time>\n" indent (seconds->gpx-timestamp timestamp)))
     (write-string (format "~a</trkpt>\n" indent))))
 
 ;; Write to (current-output-port) the XML content for a GPX way point
@@ -95,7 +119,7 @@
     (write-string (format "~a<wpt lat=\"~a\" lon=\"~a\">~%" indent lat lon))
     (write-string (format "~a  <name>~a</name>\n" indent name))
     (write-string (format "~a  <ele>~a</ele>\n" indent alt))
-    (write-string (format "~a  <time>~a</time>\n" indent (gpx-timestamp timestamp)))
+    (write-string (format "~a  <time>~a</time>\n" indent (seconds->gpx-timestamp timestamp)))
     (write-string (format "~a</wpt>\n" indent))))
 
 ;; Write to (current-output-port) the lap markers in DF as way points.
@@ -218,8 +242,8 @@
     (pcdata-string
      (for/first ([e (element-content e)] #:when (pcdata? e)) e))))
 
-(define (get-first-track-seg track)
-  (for/first ([e (element-content track)] #:when (e-name? e 'trkseg))
+(define (get-track-segments track)
+  (for/list ([e (element-content track)] #:when (e-name? e 'trkseg))
     e))
 
 (define (count-track-points track)
@@ -230,11 +254,21 @@
   (for/first ([e (element-content track)] #:when (e-name? e 'trkpt))
     e))
 
+(define (get-pcdata e)
+  (let ([data (for/first ([e (element-content e)] #:when (pcdata? e)) e)])
+    (and data (pcdata-string data))))
+
 (define (parse-track-point trkpt)
   (let ((lat #f)
         (lon #f)
         (timestamp #f)
-        (elevation #f))
+        (elevation #f)
+        (temp #f)
+        (hr #f)
+        (cadence #f)
+        (speed #f)
+        (power #f)
+        (distance #f))
     (for ([a (element-attributes trkpt)])
       (case (attribute-name a)
         ((lat) (set! lat (string->number (attribute-value a))))
@@ -242,12 +276,30 @@
     ;; NOTE: we should extract the timestamp perhaps?  we don't really care
     ;; about it for now...
     (for ([e (element-content trkpt)] #:when (element? e))
-      (let ((data (pcdata-string
-                   (for/first ([e (element-content e)] #:when (pcdata? e)) e))))
+      (let ((data (get-pcdata e)))
         (case (element-name e)
-          ((time) (set! timestamp (date->seconds (string->date data "~Y-~m-~dT~H:~M:~SZ") #f)))
-          ((ele) (set! elevation (string->number data))))))
-    (list timestamp lat lon elevation)))
+          ((time) (set! timestamp (gpx-timestamp->seconds data)))
+          ((ele) (set! elevation (string->number data)))
+          ((extensions)
+           (for ([e (element-content e)] #:when (element? e))
+             (let ((data (get-pcdata e)))
+               (case (element-name e)
+                 ((gpxtpx:hr gpxdata:hr heartrate) (set! hr (and data (string->number data))))
+                 ((gpxtpx:cad gpxdata:cadence cadence) (set! cadence (and data (string->number data))))
+                 ((gpxtpx:atemp gpxdata:temp) (set! temp (and data (string->number data))))
+                 ((gpxdata:speed) (set! speed (and data (string->number data))))
+                 ((gpxdata:power power) (set! power (and data (string->number data))))
+                 ((gpxdata:distance) (set! distance (and data (string->number data))))
+                 ((gpxtpx:TrackPointExtension)
+                  (for ([e (element-content e)] #:when (element? e))
+                    (let ((data (get-pcdata e)))
+                      (case (element-name e)
+                        ((gpxtpx:hr) (set! hr (and data (string->number data))))
+                        ((gpxtpx:cad) (set! cadence (and data (string->number data))))
+                        ((gpxtpx:atemp) (set! temp (and data (string->number data))))))))
+                 ((gpxpx:PowerInWatts)
+                  (set! power (and data (string->number data)))))))))))
+    (list timestamp lat lon elevation distance speed temp hr cadence power)))
 
 (define (parse-way-point wpt)
   (let ((lat #f)
@@ -265,7 +317,7 @@
       (let ((data (pcdata-string
                    (for/first ([e (element-content e)] #:when (pcdata? e)) e))))
         (case (element-name e)
-          ((time) (set! timestamp (date->seconds (string->date data "~Y-~m-~dT~H:~M:~SZ"))))
+          ((time) (set! timestamp (gpx-timestamp->seconds data)))
           ((ele) (set! elevation (string->number data)))
           ((name) (set! name data)))))
     (list timestamp lat lon elevation name)))
@@ -279,17 +331,17 @@
 ;; produce incorrect results if the GPX track contains loops or it is an "out
 ;; and back" track.
 (define (get-closest-timestamp df lat lon)
-  (define-values
-    (timestamp distance)
-    (for/fold ([timestamp #f] [distance #f])
-              (([plat plon ts] (in-data-frame df "lat" "lon" "timestamp")))
-      (if (and plat plon)
-          (let ((dst (map-distance/degrees plat plon lat lon)))
-            (if (or (not timestamp) (< dst distance))
-                (values ts dst)
-                (values timestamp distance)))
-          (values timestamp distance))))
-  timestamp)
+  (and (df-contains? "lat" "lon" "timestamp")
+       (let-values (((timestamp distance)
+                     (for/fold ([timestamp #f] [distance #f])
+                               (([plat plon ts] (in-data-frame df "lat" "lon" "timestamp")))
+                       (if (and plat plon)
+                           (let ((dst (map-distance/degrees plat plon lat lon)))
+                             (if (or (not timestamp) (< dst distance))
+                                 (values ts dst)
+                                 (values timestamp distance)))
+                           (values timestamp distance)))))
+         timestamp)))
 
 ;; Construct a data frame from the GPX document specified as an input port.
 ;; See `df-read/gpx` for details on what is read from the document.
@@ -297,47 +349,112 @@
   (define gpx (get-gpx-tree (slurp-xml in)))
   (define track (get-track gpx))
   (unless track (df-raise "could not find track"))
-  (define track-segment (get-first-track-seg track))
-  (unless track-segment (df-raise "could not find track segment"))
-  (define item-count (count-track-points track-segment))
+  (define track-segments (get-track-segments track))
+  (define item-count
+    (for/sum ([segment (in-list track-segments)])
+      (count-track-points segment)))
   (define lat (make-vector item-count))
   (define lon (make-vector item-count))
   (define alt (make-vector item-count))
   (define timestamp (make-vector item-count #f))
+
+  ;; These are optional series, so we delay creating the vector that stores
+  ;; the values until the first element in the series is seen.  The trade-off
+  ;; is that we have to check the presence of this vector for every item, so
+  ;; we are sacrificing lower memory use for slower execution speed.
+  (define temperature #f)
+  (define heart-rate #f)
+  (define cadence #f)
+  (define power #f)
+  (define speed #f)
+  (define distance #f)
+
   (define index 0)
-  (for ([e (element-content track-segment)] #:when (e-name? e 'trkpt))
-    (match-define (list pt-timestamp pt-lat pt-lon pt-ele) (parse-track-point e))
+  (for* ([s (in-list track-segments)]
+         [e (in-list (element-content s))] #:when (e-name? e 'trkpt))
+    (match-define (list pt-timestamp pt-lat pt-lon pt-ele pt-distance
+                        pt-speed pt-temp pt-hr pt-cadence pt-power) (parse-track-point e))
+
     (vector-set! timestamp index pt-timestamp)
     (vector-set! lat index pt-lat)
     (vector-set! lon index pt-lon)
     (vector-set! alt index pt-ele)
+
+    (when pt-temp
+      (unless temperature (set! temperature (make-vector item-count #f)))
+      (vector-set! temperature index pt-temp))
+
+    (when pt-hr
+      (unless heart-rate (set! heart-rate (make-vector item-count #f)))
+      (vector-set! heart-rate index pt-hr))
+
+    (when pt-cadence
+      (unless cadence (set! cadence (make-vector item-count #f)))
+      (vector-set! cadence index pt-cadence))
+
+    (when pt-power
+      (unless power (set! power (make-vector item-count #f)))
+      (vector-set! power index pt-power))
+
+    (when pt-speed
+      (unless speed (set! speed (make-vector item-count #f)))
+      (vector-set! speed index pt-speed))
+
+    (when pt-distance
+      (unless distance (set! distance (make-vector item-count #f)))
+      (vector-set! distance index pt-distance))
+
     (set! index (add1 index)))
 
-  (define timestamp-col (make-series "timestamp" #:data timestamp #:cmpfn <=))
   (define lat-col (make-series "lat" #:data lat))
   (define lon-col (make-series "lon" #:data lon))
-  (define alt-col (make-series "alt" #:data alt))
 
   (define df (make-data-frame))
-  (df-add-series df timestamp-col)
   (df-add-series df lat-col)
   (df-add-series df lon-col)
-  (df-add-series df alt-col)
 
-  ;; Create the "dst" series, this is needed by the trainer application
-  (define dst 0)
-  (df-add-derived
-   df
-   "dst"
-   '("lat" "lon")
-   (lambda (prev next)
-     (when (and prev next)
-       (match-define (list prev-lat prev-lon) prev)
-       (match-define (list next-lat next-lon) next)
-       (when (and prev-lat prev-lon next-lat next-lon)
-         (set! dst (+ dst (map-distance/degrees prev-lat prev-lon next-lat next-lon)))))
-     dst))
-  (df-set-sorted df "dst" <=)
+  (when (for/first ([e (in-vector timestamp)] #:when e) e)
+    ;; We have timestamps in this GPX file, but they may or may not be sorted.
+    ;; Create an appropriate series and add it to the data frame
+    (define ts
+      (with-handlers
+        (((lambda (e) #t) (lambda (e) (make-series "timestamp" #:data timestamp))))
+        (make-series "timestamp" #:data timestamp #:cmpfn <=)))
+    (df-add-series df ts))
+
+  (define (maybe-add name data)
+    (when (and data (for/first ([e (in-vector data)] #:when e) e))
+      (df-add-series df (make-series name #:data data))))
+
+  (maybe-add "alt" alt)
+  (maybe-add "temp" temperature)
+  (maybe-add "hr" heart-rate)
+  (maybe-add "cad" cadence)
+  (maybe-add "pwr" power)
+  (maybe-add "spd" speed)
+  (maybe-add "dst" distance)
+
+  ;; A "dst" series must exist in the data frame, so we create it if one was
+  ;; not present in the data file.
+  (when (and (df-contains? df "lat" "lon") (not (df-contains? df "dst")))
+    (define dst 0)
+    (df-add-derived
+     df
+     "dst"
+     '("lat" "lon")
+     (lambda (prev next)
+       (when (and prev next)
+         (match-define (list prev-lat prev-lon) prev)
+         (match-define (list next-lat next-lon) next)
+         (when (and prev-lat prev-lon next-lat next-lon)
+           (set! dst (+ dst (map-distance/degrees prev-lat prev-lon next-lat next-lon)))))
+       dst)))
+
+  ;; If the distance data came from the GPX file, it might not be in ascending
+  ;; order, and marking it as sorted will fail, ignore such a failure.
+  (with-handlers
+    (((lambda (e) #t) (lambda (e) (void))))
+    (df-set-sorted df "dst" <=))
 
   (define track-name (get-track-name track))
   (when track-name

@@ -231,11 +231,24 @@ be written out, by default all rows are written out.
 @defproc[(df-read/gpx (input (or/c path-string? input-port?)))
                       data-frame?]{
 
-Construct a data frame from the GPX document specified in
-@racket[input], which is either an input port or a string, in which
-case it denotes an input file.  The data frame will have "timestamp",
-"lat", "lon", "alt", "dst" and "grade" series, the last two series
-computed and not read from the GPX file.
+Construct a data frame from the GPX document specified in @racket[input],
+which is either an input port or a string, in which case it denotes an input
+file.  The data frame will have one or more of the following series:
+
+@itemize[
+  @item{"lat" and "lon" series representing the latitude and longitude of each
+        point}
+  @item{"timestamp" series representing the UTC timestamp in seconds for each
+        point.  The series will also be marked as sorted, if it is actually
+        sorted}
+  @item{"dst" representing a distance from the start.  If distance data is not
+        present in the GPX file, this series will be calculated from the GPX
+        coordiantes.  The series will be marked as sorted, if it is actually
+        sorted}
+  @item{"hr" representing heart rate measurements}
+  @item{"cad" representing cadence measurements}
+  @item{"pwr" representing power measurements, in watts}
+  @item{"spd" representing the speed}]
 
 The data frame will also have the following properties:
 
