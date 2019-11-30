@@ -9,7 +9,7 @@ pool:
 
 variables:
   PACKAGE_NAME: "data-frame"
-  RACKET_VERSION: 7.4
+  RACKET_VERSION: 7.5
   RACKET_DIR: $(Agent.BuildDirectory)/racket
   PLTSTDERR: 'error warning@optimizer'
 
@@ -28,3 +28,10 @@ steps:
     raco setup --check-pkg-deps --pkgs $(PACKAGE_NAME)
     raco test --no-run-if-absent --package $(PACKAGE_NAME)
   displayName: 'Build and Test $(PACKAGE_NAME)'
+
+- task: PublishTestResults@2
+  condition: succeededOrFailed()
+  inputs:
+    testResultsFiles: '**/test-results*.xml'
+    testRunTitle: 'Test results for $(PACKAGE_NAME)'
+  displayName: 'Publish Test Results for $(PACKAGE_NAME)'

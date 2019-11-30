@@ -45,7 +45,8 @@
          "../histogram.rkt"
          "../rdp-simplify.rkt"
          "../least-squares-fit.rkt"
-         "../scatter.rkt")
+         "../scatter.rkt"
+         "custom-test-runner.rkt")
 
 (define-runtime-path csv-test-file "./csv-tests-t1.csv")
 (define-runtime-path sample-csv "./test-data/sample.csv")
@@ -61,14 +62,21 @@
 
 (define bsearch-tests
   (test-suite
-   "`bsearch` test suite"
 
-   (test-case "`bsearch` test cases"
+   "bsearch"
+
+   (test-case "bsearch: empty vector"
      (define empty (make-vector 0))
+     (check equal? (bsearch empty 5) 0))
+     
+   (test-case "bsearch: reverse order"
+     (define rdata (for/vector ([x (in-range 20 1 -1)]) x))
+     (check equal? (bsearch rdata 5 #:cmp >) 15))
+
+   (test-case "bsearch: other"
      (define data (for/vector ([x (in-range 1 21)]) x)) ; 20 element vector
 
      ;; Simple search
-     (check equal? (bsearch empty 5) 0)
      (check equal? (bsearch data 5) 4)
      ;; Search for out of range values
      (check equal? (bsearch data -1) 0)
@@ -110,9 +118,6 @@
         ;; start is after end
         (bsearch data 5 #:start 5 #:stop 1)))
 
-     (define rdata (for/vector ([x (in-range 20 1 -1)]) x))
-     (check equal? (bsearch rdata 5 #:cmp >) 15)
-
      )))
 
 
@@ -120,19 +125,19 @@
 
 (define series-tests
   (test-suite
-   "`series` test suite"
+   "df-series"
 
-   (test-case "`series` test cases"
-
-     ;; Wrong sort order
+   (test-case "df-series: wrong sort order"
      (check-exn
       exn:fail:data-frame?
-      (lambda () (make-series "col1" #:data #(1 2 3) #:cmpfn >)))
+      (lambda () (make-series "col1" #:data #(1 2 3) #:cmpfn >))))
 
-     ;; Wrong contract
+   (test-case "df-series: wrong contract"
      (check-exn
       exn:fail:data-frame?
-      (lambda () (make-series "col1" #:data #(1 2 3) #:contract string?)))
+      (lambda () (make-series "col1" #:data #(1 2 3) #:contract string?))))
+
+   (test-case "df-series: other"
 
      (define c1 (make-series "col1" #:capacity 10))
      (check = (series-size c1) 0)
@@ -243,9 +248,9 @@
 
 (define spline-tests
   (test-suite
-   "`spline` test suite"
+   "spline"
 
-   (test-case "`spline` test cases"
+   (test-case "spline: other"
      (define data-points '(#(-1 0.5) #(0 0) #(3 3)))
      (define fn (spline data-points))
      (check equal? (fn 0) 0)
@@ -253,14 +258,6 @@
      (check-pred real? (fn 1.0))
      (check-pred real? (fn -2))         ; outside the points range
      (check-pred real? (fn 10))         ; outside the points range
-
-     (define data-points2 #(#(-1 0.5) #(0 0) #(3 3)))
-     (define fn2 (spline data-points))
-     (check equal? (fn2 0) 0)
-     (check-pred real? (fn2 0.5))
-     (check-pred real? (fn2 1.0))
-     (check-pred real? (fn2 -2))        ; outside the points range
-     (check-pred real? (fn2 10))        ; outside the points range
 
      ;;
      ;; This will plot the spline and the know points, useful for
@@ -287,9 +284,9 @@
 
 (define df-tests
   (test-suite
-   "`df` test suite"
+   "df"
 
-   (test-case "`df` test cases"
+   (test-case "df: other"
 
      ;; Basic construction and item access
      (define df (make-data-frame))
@@ -567,9 +564,9 @@
 
 (define dfdb-tests
   (test-suite
-   "`dfdb` test suite"
+   "df-read/sql"
 
-   (test-case "`dfdb` test cases"
+   (test-case "df-read/sql: other"
      (with-fresh-database
        (lambda (db)
          (query-exec db "create table T(a real, b real, c text)")
@@ -586,13 +583,13 @@
 
 (define csv-tests
   (test-suite
-   "`csv` test suite"
+   "df-read+write/csv"
    #:after (lambda ()
              (with-handlers (((lambda (e) #t) (lambda (e) #t)))
                (delete-file csv-test-file)))
-   (test-case "`csv` test cases"
-     (define df (make-data-frame))
 
+   (test-case "df-write/csv: empty dataframe"
+     (define df (make-data-frame))
      ;; Check that df-write/csv does not go into an infinite loop when writing
      ;; out an empty data frame (it used to :-) )
      (define t (thread (lambda ()
@@ -600,7 +597,42 @@
                           (lambda (out) (df-write/csv df out))))))
      (check-true (not (eq? #f (sync/timeout 10.0 t)))
                  "infinite loop in df-write/csv")
-     (kill-thread t)
+     (kill-thread t))
+
+   (test-case "df-read/csv: basic"
+     (define df1 (df-read/csv sample-csv))
+     (check equal? (sort (df-series-names df1) string<?) '("four" "one" "three" "two"))
+     (check = (df-row-count df1) 6)
+     (check equal? (df-select* df1 "one" "two" "three" "four")
+            #(#(1 2 3 4)
+              #(4 5 6 "abc")
+              #(7 8 9 "def,gh")
+              #(10 11 12 "a,bc\" 123 \"d\"ef")
+              #(14 15 #f #f)
+              #("16" "17" #f #f))))
+
+   (test-case "df-read/csv: quoted-numbers"
+     ;; Read the same file again, note that the last row will now contain
+     ;; numbers, not strings
+     (define df1a (df-read/csv sample-csv #:quoted-numbers? #t))
+     (check equal? (sort (df-series-names df1a) string<?) '("four" "one" "three" "two"))
+     (check = (df-row-count df1a) 6)
+     (check equal? (df-select* df1a "one" "two" "three" "four")
+            #(#(1 2 3 4)
+              #(4 5 6 "abc")
+              #(7 8 9 "def,gh")
+              #(10 11 12 "a,bc\" 123 \"d\"ef")
+              #(14 15 #f #f)
+              #(16 17 #f #f))))
+
+   (test-case "read/custom-na-string"
+     ;; This CSV file contains "-" in the "empty" cells, strip them out when
+     ;; reading them.
+     (let ((df (df-read/csv sample2-csv #:na "-")))
+       (check > (df-count-na df "two") 0)))
+   
+   (test-case "df-write/csv: other"
+     (define df (make-data-frame))
      
      (define s1 (make-series "s,1" #:data #(1 1/2 3 #f 5) #:na #f))
      (define s2 (make-series "s,2" #:data #("one" "two" "th\"ree" #f "") #:na ""))
@@ -615,30 +647,6 @@
                     (lambda (out) (df-write/csv df out "s,1" #:start 1 #:stop 3))))
      (check equal? text2 "\"s,1\"\n0.5\n3\n")
 
-     (define df1 (df-read/csv sample-csv))
-     (check equal? (sort (df-series-names df1) string<?) '("four" "one" "three" "two"))
-     (check = (df-row-count df1) 6)
-     (check equal? (df-select* df1 "one" "two" "three" "four")
-            #(#(1 2 3 4)
-              #(4 5 6 "abc")
-              #(7 8 9 "def,gh")
-              #(10 11 12 "a,bc\" 123 \"d\"ef")
-              #(14 15 #f #f)
-              #("16" "17" #f #f)))
-
-     ;; Read the same file again, note that the last row will now contain
-     ;; numbers, not strings
-     (define df1a (df-read/csv sample-csv #:quoted-numbers? #t))
-     (check equal? (sort (df-series-names df1a) string<?) '("four" "one" "three" "two"))
-     (check = (df-row-count df1a) 6)
-     (check equal? (df-select* df1a "one" "two" "three" "four")
-            #(#(1 2 3 4)
-              #(4 5 6 "abc")
-              #(7 8 9 "def,gh")
-              #(10 11 12 "a,bc\" 123 \"d\"ef")
-              #(14 15 #f #f)
-              #(16 17 #f #f)))
-
      ;; Try writing it out to file and reading from an input port, this is a
      ;; slightly different code path than writing to an output port.
      (check-not-exn
@@ -648,24 +656,22 @@
       (lambda ()
         (call-with-input-string text (lambda (in) (df-read/csv in)))))
 
-     ;; This CSV file contains "-" in the "empty" cells, strip them out when
-     ;; reading them.
-     (let ((df (df-read/csv sample2-csv #:na "-")))
-       (check > (df-count-na df "two") 0))
-
      )))
 
 
 (define gpx-tests
   (test-suite
-   "`gpx` test suite"
+   "df-read+write/gpx"
    #:after (lambda ()
              (with-handlers (((lambda (e) #t) (lambda (e) #t)))
                (delete-file gpx-test-file)))
-   (test-case "`gpx` test cases"
+
+   (test-case "df-read/gpx: basic"
      (define df (df-read/gpx sample-gpx-file))
      (check-true (df-contains? df "lat" "lon" "alt" "dst" "timestamp"))
-     (check > (df-row-count df) 0)
+     (check > (df-row-count df) 0))
+   
+   (test-case "df-read+write/gpx: other"
 
      (define df-1136 (df-read/csv sample-1136-file))
      (check-true (df-contains? df-1136 "lat" "lon" "alt" "timestamp"))
@@ -696,8 +702,8 @@
 
 (define stats+mmax-tests
   (test-suite
-   "`statistics + meanmax` test suite"
-   (test-case "`statistics + meanmax` test cases"
+   "statistics+meanmax"
+   (test-case "statistics + meanmax test cases"
 
      (define df (df-read/csv sample-1136-file))
      (check-not-exn
@@ -742,8 +748,8 @@
 
 (define histogram-tests
   (test-suite
-   "`df-histogram` test suite"
-   (test-case "`df-histogram` test cases"
+   "df-histogram"
+   (test-case "df-histogram: other"
 
      (define df-1136 (df-read/csv sample-1136-file))
 
@@ -775,32 +781,29 @@
 
 (define rdp-simplify-tests
   (test-suite
-   "`rdp-simplify` test suite"
-   (test-case "`rdp-simplify` test cases"
+   "rdp-simplify"
 
-     ;; Degenerate cases for 0, 1, 2 vector sizes.  In these cases, the
-     ;; function should just return the input vector
-
+   ;; Degenerate cases for 0, 1, 2 vector sizes.  In these cases, the
+   ;; function should just return the input vector
+   (test-case "rdp-simplify: 0 elements"
      (define vzero (vector))
-     (check-not-exn
-      (lambda ()
-        (define result (rdp-simplify vzero))
-        (check = (vector-length result) 0)))
+     (define result (rdp-simplify vzero))
+     (check = (vector-length result) 0))
 
+   (test-case "rdp-simplify: 1 element"
      (define vone (vector (vector 0 1)))
-     (check-not-exn
-      (lambda ()
-        (define result (rdp-simplify vone))
-        (check = (vector-length result) 1)
-        (check equal? (vector-ref result 0) (vector 0 1))))
+     (define result (rdp-simplify vone))
+     (check = (vector-length result) 1)
+     (check equal? (vector-ref result 0) (vector 0 1)))
 
+   (test-case "rdp-simplify: 2 elements"
      (define vtwo (vector (vector 0 1) (vector 0 2)))
-     (check-not-exn
-      (lambda ()
-        (define result (rdp-simplify vtwo))
-        (check = (vector-length result) 2)
-        (check equal? (vector-ref result 0) (vector 0 1))
-        (check equal? (vector-ref result 1) (vector 0 2))))
+     (define result (rdp-simplify vtwo))
+     (check = (vector-length result) 2)
+     (check equal? (vector-ref result 0) (vector 0 1))
+     (check equal? (vector-ref result 1) (vector 0 2)))
+     
+   (test-case "rdp-simplify: other"
 
      ;; NOTE: it would be nice if we could test that rdp-simplify actually did
      ;; a sane simplification, rather than just reduce the number of points...
@@ -838,8 +841,8 @@
 
 (define scatter-tests
   (test-suite
-   "`scatter` test suite"
-   (test-case "`time-delay-series` test case"
+   "scatter"
+   (test-case "time-delay-series"
 
      (define timestamp 1000000)
      (define nitems 100)
@@ -928,12 +931,10 @@
       (define nresidual (calculate-residual nfn))
       (check > nresidual residual))))
 
-
-
 (define least-squares-fit-tests
   (test-suite
-   "`df-least-squares-fit` test suite"
-   (test-case "`df-least-squares-fit` test cases"
+   "df-least-squares-fit"
+   (test-case "df-least-squares-fit: other"
 
      (define df (df-read/csv lsq-test-file))
 
@@ -998,23 +999,18 @@
 
 ;;................................................................. rest ....
 
-(define data-frame-tests
-  (test-suite
-   "data frame tests"
-   bsearch-tests
-   series-tests
-   spline-tests
-   df-tests
-   dfdb-tests
-   csv-tests
-   gpx-tests
-   stats+mmax-tests
-   histogram-tests
-   rdp-simplify-tests
-   scatter-tests
-   least-squares-fit-tests))
-
 (module+ test
-  ;; Tests to be run with raco test
-  (require rackunit/text-ui)
-  (run-tests data-frame-tests))
+  (run-tests #:package "data-frame"
+             #:results-file "test-results-data-frame.xml"
+             bsearch-tests
+             series-tests
+             spline-tests
+             df-tests
+             dfdb-tests
+             csv-tests
+             gpx-tests
+             stats+mmax-tests
+             histogram-tests
+             rdp-simplify-tests
+             scatter-tests
+             least-squares-fit-tests))
