@@ -341,27 +341,26 @@
 ;; Run the tests in TEST-SUITE, publishing the results to the COLLECTOR, an
 ;; instance of test-result-collector%
 (define (fold-test-results test-suite collector)
-  (parameterize ([current-output-port (current-error-port)])
-    (foldts-test-suite
-     ;; Called before a test suite is run
-     (lambda (suite name before after seed)
-       (before)
-       (send collector on-test-suite-start name))
-     ;; Called after a test suite completed
-     (lambda (suite name before after seed kid-seed)
-       (after)
-       (send collector on-test-suite-completed name))
-     ;; Called once for each test case in a suite
-     (lambda (case name action seed)
-       (when (send collector before-test-case-start name)
-         (define start (current-inexact-milliseconds))
-         (define result (run-test-case name action))
-         (define end (current-inexact-milliseconds))
-         (send collector on-test-case-completed result (- end start))))
-     ;; The seed (unused by our code)
-     (void)
-     ;; The test suite we run
-     test-suite)))
+  (foldts-test-suite
+   ;; Called before a test suite is run
+   (lambda (suite name before after seed)
+     (before)
+     (send collector on-test-suite-start name))
+   ;; Called after a test suite completed
+   (lambda (suite name before after seed kid-seed)
+     (after)
+     (send collector on-test-suite-completed name))
+   ;; Called once for each test case in a suite
+   (lambda (case name action seed)
+     (when (send collector before-test-case-start name)
+       (define start (current-inexact-milliseconds))
+       (define result (run-test-case name action))
+       (define end (current-inexact-milliseconds))
+       (send collector on-test-case-completed result (- end start))))
+   ;; The seed (unused by our code)
+   (void)
+   ;; The test suite we run
+   test-suite))
 
 ;; Run all the tests in TEST-SUITES and write the report to RESULTS-FILE (if
 ;; it is a string).  The report will be written in JUnit xml test report

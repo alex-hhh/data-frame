@@ -20,44 +20,13 @@
 
 (require racket/contract
          racket/date
-         racket/flonum
          racket/format
          racket/match
-         racket/math
          xml
          "df.rkt"
          "exn.rkt"
-         "series.rkt")
-
-
-;;................................................. map-distance/degrees ....
-
-;; Formulas from http://www.movable-type.co.uk/scripts/latlong.html
-
-(define earth-radius (->fl 6371000))    ; meters
-
-(define (haversin theta)
-  (fl/ (fl- 1.0 (flcos theta)) 2.0))
-
-(define (inv-haversin h)
-  (fl* 2.0 (flasin (flsqrt h))))
-
-;; Calculate the distance in meters between two map coordinates
-(define (map-distance/radians lat1 lon1 lat2 lon2)
-  (let ((delta-lat (fl- lat2 lat1))
-        (delta-lon (fl- lon2 lon1)))
-    (let* ((a (fl+ (haversin delta-lat)
-                   (fl* (fl* (flcos lat1) (flcos lat2))
-                        (haversin delta-lon))))
-           (c (inv-haversin a)))
-      (fl* c earth-radius))))
-
-(define (map-distance/degrees lat1 lon1 lat2 lon2)
-  (map-distance/radians
-   (degrees->radians lat1)
-   (degrees->radians lon1)
-   (degrees->radians lat2)
-   (degrees->radians lon2)))
+         "series.rkt"
+         "xml-common.rkt")
 
 
 ;;......................................................... df-write/gpx ....
@@ -82,28 +51,6 @@
      "T"
      (fmt (date-hour d) 2) ":" (fmt (date-minute d) 2) ":" (fmt (date-second d) 2) "Z")))
 
-(define timestamp-rx
-  #px"([[:digit:]]+)-([[:digit:]]+)-([[:digit:]]+)T([[:digit:]]+):([[:digit:]]+):([[:digit:]]+(.[[:digit:]]+)?)Z")
-
-;; Parse a timestamp in the format "YYYY-MM-DDTHH-MM-SS.SSSZ" and return the
-;; UTC seconds corresponding to that timestamp. Note a fractional timestamp
-;; might be returned, if the string contains a fractional timestamp
-(define (gpx-timestamp->seconds ts)
-  (match (regexp-match timestamp-rx ts)
-    ((list _ year month day hour minute seconds rest ...)
-     (define s (string->number seconds))
-     (define fractional (- s (exact-truncate s)))
-     (+ fractional (date->seconds
-                    (make-date (exact-truncate s)
-                               (string->number minute)
-                               (string->number hour)
-                               (string->number day)
-                               (string->number month)
-                               (string->number year)
-                               ;; These are ignored by date->seconds
-                               0 0 #f 0)
-                    #f)))
-    (_ #f)))
 
 ;; Write to (current-output-port) the XML content for a GPX track point.
 (define (gpx-emit-trkpt lat lon alt timestamp)
@@ -216,22 +163,11 @@
 
 ;;.......................................................... df-read/gpx ....
 
-;; Read the GPX XML document from the input port IN.  While reading the XML
-;; contents, white space is collapsed and comments are skipped.
-(define (slurp-xml in)
-  (parameterize ((collapse-whitespace #t)
-                 (read-comments #f))
-    (read-xml/document in)))
-
 (define (get-gpx-tree xml)
   (let ((e (document-element xml)))
     (if (eq? (element-name e) 'gpx)
         e
         (df-raise "not a gpx file"))))
-
-;; Convenience function to check if E is an XML document by NAME
-(define (e-name? e name)
-  (and (element? e) (eq? (element-name e) name)))
 
 (define (get-track gpx)
   (for/first ([e (element-content gpx)] #:when (e-name? e 'trk))
@@ -254,10 +190,6 @@
   (for/first ([e (element-content track)] #:when (e-name? e 'trkpt))
     e))
 
-(define (get-pcdata e)
-  (let ([data (for/first ([e (element-content e)] #:when (pcdata? e)) e)])
-    (and data (pcdata-string data))))
-
 (define (parse-track-point trkpt)
   (let ((lat #f)
         (lon #f)
@@ -278,7 +210,7 @@
     (for ([e (element-content trkpt)] #:when (element? e))
       (let ((data (get-pcdata e)))
         (case (element-name e)
-          ((time) (set! timestamp (gpx-timestamp->seconds data)))
+          ((time) (set! timestamp (xml-timestamp->seconds data)))
           ((ele) (set! elevation (string->number data)))
           ((extensions)
            (for ([e (element-content e)] #:when (element? e))
@@ -317,7 +249,7 @@
       (let ((data (pcdata-string
                    (for/first ([e (element-content e)] #:when (pcdata? e)) e))))
         (case (element-name e)
-          ((time) (set! timestamp (gpx-timestamp->seconds data)))
+          ((time) (set! timestamp (xml-timestamp->seconds data)))
           ((ele) (set! elevation (string->number data)))
           ((name) (set! name data)))))
     (list timestamp lat lon elevation name)))
@@ -474,9 +406,8 @@
 
 ;; Construct a data frame from the GPX document specified in INP -- which is
 ;; either an input port or a string, in which case it denotes an input file.
-;; The data frame will have "timestamp", "lat", "lon", "alt", "dst" and
-;; "grade" series (the last two are computed.  See doc/session-df.md for the
-;; meaning of these series.
+;; The data frame will have "timestamp", "lat", "lon", "alt", "dst" and other
+;; series.  See doc/session-df.md for the meaning of these series.
 ;;
 ;; The data frame will also have the following properties:
 ;;
@@ -491,7 +422,8 @@
 ;;   way point in the waypoint list -- the laps property cannot be constructed
 ;;   correctly if the waypoints are missing a timestamp property.
 ;;
-;; Only the first track segment in the GPX file will be read.
+;; All track segments in the GPX document are concatenated into a single
+;; segment.
 (define (df-read/gpx inp)
   (if (path-string? inp)
       (call-with-input-file inp #:mode 'text

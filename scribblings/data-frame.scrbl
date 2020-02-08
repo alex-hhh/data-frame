@@ -1,9 +1,8 @@
 #lang scribble/manual
-@require[@for-label[data-frame
-                    racket/base
+@require[@for-label[racket/base
                     racket/contract
                     math/statistics
-                    plot
+                    plot/no-gui
                     plot/utils
                     db]]
 
@@ -224,71 +223,6 @@ in the data frame are written out as columns in an unspecified order.
 
 @racket[start] and @racket[stop] denote the beginning and end rows to
 be written out, by default all rows are written out.
-
-}
-
-
-@defproc[(df-read/gpx (input (or/c path-string? input-port?)))
-                      data-frame?]{
-
-Construct a data frame from the GPX document specified in @racket[input],
-which is either an input port or a string, in which case it denotes an input
-file.  The data frame will have one or more of the following series:
-
-@itemize[
-  @item{"lat" and "lon" series representing the latitude and longitude of each
-        point}
-  @item{"timestamp" series representing the UTC timestamp in seconds for each
-        point.  The series will also be marked as sorted, if it is actually
-        sorted}
-  @item{"dst" representing a distance from the start.  If distance data is not
-        present in the GPX file, this series will be calculated from the GPX
-        coordiantes.  The series will be marked as sorted, if it is actually
-        sorted}
-  @item{"hr" representing heart rate measurements}
-  @item{"cad" representing cadence measurements}
-  @item{"pwr" representing power measurements, in watts}
-  @item{"spd" representing the speed}]
-
-The data frame will also have the following properties:
-
-@itemize[
-
-@item{a @racket['name] property containing the name of the track
-segment, if this is present in the GPX file.}
-
-@item{a @racket['waypoints] property containing a list of waypoints,
-if they GPX track has any.  Each waypoint is represented as a list of
-TIMESTAMP, LAT, LON, ELEVATION and NAME}
-
-@item{a @racket['laps] property containing a list of timestamps
-corresponding to each way point in the waypoint list -- the laps
-property cannot be constructed correctly if the waypoints are missing
-a timestamp property.}]
-
-Only the first track segment in the GPX file will be read.}
-
-@defproc[(df-write/gpx (df data-frame?)
-                       (output (or/c path-string? output-port?))
-                       (#:name name (or/c #f string?)))
-                       any/c]{
-
-Export the GPS track from the data frame @racket[df] to
-@racket[output], which is either an output port or a string, in which
-case it denotes a file name.  The data frame is expected to contain
-the "timestamp", "lat", "lon" series, and optionally "alt" or "calt"
-(corrected altitude) series.
-
-The entire GPS track is exported as a single track segment.
-
-The @racket[laps] property, if present, is assumed to contain a list
-of timestamps and the positions corresponding to these timestamps are
-exported as way points.
-
-The name of the segment can be specified as the @racket[name]
-parameter. If this is @racket[#f], the @racket['name] property in the
-data frame is consulted, if that one is missing a default track name
-is used.
 
 }
 
@@ -886,3 +820,137 @@ transform a value of @racket[300] into the label @racket["5:00"].
 
 }
 
+@section{GPX Files}
+
+@defmodule[data-frame/gpx]
+
+This module provides functions for reading and writing data frames using the
+@hyperlink["https://en.wikipedia.org/wiki/GPS_Exchange_Format"]{GPX Exchange
+Format (GPX)}.
+
+@defproc[(df-read/gpx (input (or/c path-string? input-port?)))
+                      data-frame?]{
+
+Construct a data frame from the GPX document specified in @racket[input],
+which is either an input port or a string, in which case it denotes an input
+file.  The data frame will have one or more of the following series:
+
+@itemize[
+  @item{"lat" and "lon" series representing the latitude and longitude of each
+        point}
+  @item{"timestamp" series representing the UTC timestamp in seconds for each
+        point.  The series will also be marked as sorted, if it is actually
+        sorted}
+  @item{"dst" representing a distance from the start.  If distance data is not
+        present in the GPX file, this series will be calculated from the GPX
+        coordiantes.  The series will be marked as sorted, if it is actually
+        sorted}
+  @item{"hr" representing heart rate measurements}
+  @item{"cad" representing cadence measurements}
+  @item{"pwr" representing power measurements, in watts}
+  @item{"spd" representing the speed}]
+
+The data frame will also have the following properties:
+
+@itemize[
+
+@item{a @racket['name] property containing the name of the track
+segment, if this is present in the GPX file.}
+
+@item{a @racket['waypoints] property containing a list of waypoints,
+if they GPX track has any.  Each waypoint is represented as a list of
+TIMESTAMP, LAT, LON, ELEVATION and NAME}
+
+@item{a @racket['laps] property containing a list of timestamps
+corresponding to each way point in the waypoint list -- the laps
+property cannot be constructed correctly if the waypoints are missing
+a timestamp property.}]
+
+All the track segments in the GPX file will be concatenated.}
+
+@defproc[(df-write/gpx (df data-frame?)
+                       (output (or/c path-string? output-port?))
+                       (#:name name (or/c #f string?)))
+                       any/c]{
+
+Export the GPS track from the data frame @racket[df] to
+@racket[output], which is either an output port or a string, in which
+case it denotes a file name.  The data frame is expected to contain
+the "timestamp", "lat", "lon" series, and optionally "alt" or "calt"
+(corrected altitude) series.
+
+The entire GPS track is exported as a single track segment.
+
+The @racket[laps] property, if present, is assumed to contain a list
+of timestamps and the positions corresponding to these timestamps are
+exported as way points.
+
+The name of the segment can be specified as the @racket[name]
+parameter. If this is @racket[#f], the @racket['name] property in the
+data frame is consulted, if that one is missing a default track name
+is used.
+
+}
+
+@section{TCX Files}
+
+@defmodule[data-frame/tcx]
+
+This module provides functions for reading
+@hyperlink["https://en.wikipedia.org/wiki/Training_Center_XML"]{Training
+Center XML (TCX)} files into data frames.
+
+@defproc[(df-read/tcx (input (or/c path-string? input-port?)))
+         data-frame?]{
+
+  Construct a data frame from the first activity in the TCX document specified
+  in @racket[input], which is either an input port or a string, in which case
+  it denotes an input file.  The data frame will have one or more of the
+  following series:
+
+  @itemize[
+    @item{"lat" and "lon" series representing the latitude and longitude of
+          each point}
+    @item{"timestamp" series representing the UTC timestamp in seconds for
+          each point.  The series will also be marked as sorted, if it is
+          actually sorted}
+    @item{"dst" representing a distance from the start.  If distance data is
+          not present in the GPX file, this series will be calculated from the
+          GPX coordiantes.  The series will be marked as sorted, if it is
+          actually sorted}
+    @item{"hr" representing heart rate measurements}
+    @item{"cad" representing cadence measurements}
+    @item{"pwr" representing power measurements, in watts}
+    @item{"spd" representing the speed}]
+
+  The data frame may also have the following properties (if they are present
+  in the TCX document):
+
+  @itemize[
+    
+    @item{@racket['unit-id] the serial number of the device which recorded
+          the activity.}
+
+    @item{@racket['product-id] the product id for the device that recorded the
+          activity (indentifies the device type)}
+
+    @item{@racket['sport] the sport for the activity.  This is a free form
+          string, but TCX format usualy uses the strings "Running" for running
+          activities and "Biking" for biking activities.}
+
+    @item{a @racket['laps] property containing a list of timestamps
+          corresponding to the start of each lap in the activity.}
+
+  ]
+
+}
+
+@defproc[(df-read/tcx/multiple (input (or/c path-string? input-port?)))
+         (listof data-frame?)]{
+
+  Construct a list of data frames, one for each activtiy in the TCX document
+  specified in @racket[input], which is either an input port or a string, in
+  which case it denotes an input file.  See @racket[df-read/tcx] for the
+  contents of each data frame object.
+
+}

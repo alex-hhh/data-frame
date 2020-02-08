@@ -40,6 +40,7 @@
          "../sql.rkt"
          "../csv.rkt"
          "../gpx.rkt"
+         "../tcx.rkt"
          "../statistics.rkt"
          "../meanmax.rkt"
          "../histogram.rkt"
@@ -53,8 +54,10 @@
 (define-runtime-path sample2-csv "./test-data/sample2.csv")
 (define-runtime-path gpx-test-file "./gpx-tests-t1.gpx")
 (define-runtime-path sample-gpx-file "./test-data/sample.gpx")
+(define-runtime-path sample-tcx-file "./test-data/activity_790564009.tcx")
 (define-runtime-path sample-1136-file "./test-data/track-data-1136.csv")
 (define-runtime-path lsq-test-file "./test-data/lsq-test.csv")
+
 
 
 
@@ -700,6 +703,30 @@
 
      )))
 
+(define tcx-tests
+  (test-suite
+   "df-read/tcx"
+
+   (test-case "df-read/tcx: basic"
+     (define df (df-read/tcx sample-tcx-file))
+     (check-true (df-contains? df "alt" "cad" "dst" "lat" "lon" "pwr" "spd" "timestamp"))
+     (check-true (> (df-row-count df) 0))
+     (check-true (list? (df-get-property df 'laps)))
+     (check-true (> (length (df-get-property df 'laps))))
+     (check-true (number? (df-get-property df 'unit-id)))
+     (check-true (number? (df-get-property df 'product-id)))
+     (check-true (string? (df-get-property df 'tcx-sport))))
+
+   (test-case "df-read/tcx/multiple: basic"
+     (define dfs (df-read/tcx/multiple sample-tcx-file))
+     (check-true (= (length dfs) 1))
+     (define df (first dfs))
+     (check-true (df-contains? df "alt" "cad" "dst" "lat" "lon" "pwr" "spd" "timestamp"))
+     (check-true (> (df-row-count df) 0))
+     (check-true (list? (df-get-property df 'laps)))
+     (check-true (> (length (df-get-property df 'laps)))))
+  ))
+
 (define stats+mmax-tests
   (test-suite
    "statistics+meanmax"
@@ -1009,6 +1036,7 @@
              dfdb-tests
              csv-tests
              gpx-tests
+             tcx-tests
              stats+mmax-tests
              histogram-tests
              rdp-simplify-tests
