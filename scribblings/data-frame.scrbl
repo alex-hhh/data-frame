@@ -2,8 +2,8 @@
 @require[@for-label[racket/base
                     racket/contract
                     math/statistics
-                    plot/no-gui
-                    plot/utils
+                    plot
+                    (only-in plot/utils renderer2d?)
                     db]]
 
 @title{data-frame}
@@ -738,7 +738,7 @@ be created so that the buckets are also consecutive.
                     
 @defproc[(histogram-renderer (histogram histogram/c)
                              (#:color color any/c #f)
-                             (#:skip real? (discrete-histogram-skip))
+                             (#:skip skip real? (discrete-histogram-skip))
                              (#:x-min x-min real? 0)
                              (#:label label string? #f)
                              (#:blank-some-labels blank-some-labels? boolean? #t)
