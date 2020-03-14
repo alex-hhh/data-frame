@@ -184,7 +184,7 @@ column from the result set will become a series in the data frame,
 
 @defproc[(df-read/csv (input (or/c path-string? input-port?))
                       (#:headers? headers? boolean? #t)
-                      (#:na na string? "")
+                      (#:na na (or/c string? (-> string? boolean?) ""))
                       (#:quoted-numbers? quoted-numbers? boolean? #f))
                       data-frame?]{
   
@@ -198,7 +198,9 @@ column from the result set will become a series in the data frame,
 
   @racket[na] represents the value in the CSV file that represents the "not
   available" value in the data frame.  Strings @racket[equal?] to this value
-  will be replaced by @racket[#f].
+  will be replaced by @racket[#f].  Alternatively, this can be a function
+  which tests a string and returns @racket[#t] if the string represents a NA
+  value
 
   When @racket[quoted-numbers?] is @racket[#t], all quoted values in the CSV
   file will be converted to numbers, if possible.  E.g. a value like "123"

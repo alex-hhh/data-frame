@@ -52,6 +52,7 @@
 (define-runtime-path csv-test-file "./csv-tests-t1.csv")
 (define-runtime-path sample-csv "./test-data/sample.csv")
 (define-runtime-path sample2-csv "./test-data/sample2.csv")
+(define-runtime-path sample3-csv "./test-data/sample3.csv")
 (define-runtime-path gpx-test-file "./gpx-tests-t1.gpx")
 (define-runtime-path sample-gpx-file "./test-data/sample.gpx")
 (define-runtime-path sample-tcx-file "./test-data/activity_790564009.tcx")
@@ -633,6 +634,22 @@
      ;; reading them.
      (let ((df (df-read/csv sample2-csv #:na "-")))
        (check > (df-count-na df "two") 0)))
+
+   (test-case "read/empty-strings"
+     ;; This CSV contains empty quoted strings. They should be read in as NA
+     ;; values.
+     (let ((df (df-read/csv sample3-csv)))
+       (check = (df-count-na df "one") 1)
+       (check = (df-count-na df "two") 1)))
+
+   (test-case "read/na-proc"
+     ;; Use a custom NA function which treats even numbers as NA.
+     (let ((df (df-read/csv sample3-csv
+                            #:na (lambda (v)
+                                   (let ((v (string->number v)))
+                                     (and (number? v) (even? v)))))))
+       (check = (df-count-na df "one") 4)
+       (check = (df-count-na df "two") 2)))
    
    (test-case "df-write/csv: other"
      (define df (make-data-frame))

@@ -93,52 +93,67 @@
 ;; Parse a LINE from a CSV file and return the list of "cells" in it as
 ;; strings.  Takes special care that comma characters "," inside strings are
 ;; correctly handled.  Also double quotes inside strings are unquoted.
-(define (parse-line line)
-  (let ((in (open-input-string line)))
-    (let loop ((c (read-char in))
-               (current "")
-               (row '())
-               (in-string? #f))
-      (cond ((eof-object? c)
-             (reverse (cons current row)))
-            ((and (eqv? c #\,) (not in-string?))
-             (loop (read-char in) "" (cons current row) #f))
-            ((and in-string? (eqv? c #\") (eqv? (peek-char in) #\"))
-             (read-char in)             ; consume the next char
-             (loop (read-char in) (string-append current (string c)) row in-string?))
-            ((eqv? c #\")
-             (loop (read-char in) (string-append current (string c)) row (not in-string?)))
-            (#t
-             (loop (read-char in) (string-append current (string c)) row in-string?))))))
+(define (parse-line in)
+  (let loop ((c (read-char in))
+             (current (open-output-string))
+             (row '())
+             (in-string? #f))
+    (cond ((eof-object? c)
+           (reverse (cons (get-output-string current) row)))
+          ((equal? c #\newline)
+           ;; Recognize #\newline + #\return combinations
+           (when (equal? (peek-char in) #\return) (read-char in))
+           (reverse (cons (get-output-string current) row)))
+          ((equal? c #\return)
+           ;; Recognize #\return + #\newline combinations
+           (when (equal? (peek-char in) #\newline) (read-char in))
+           (reverse (cons (get-output-string current) row)))
+          ((and (eqv? c #\,) (not in-string?))
+           (loop (read-char in)
+                 (open-output-string)
+                 (cons (get-output-string current) row)
+                 #f))
+          ((and in-string? (eqv? c #\") (eqv? (peek-char in) #\"))
+           (write-char c current)
+           (read-char in)             ; consume the next char
+           (loop (read-char in) current row in-string?))
+          ((eqv? c #\")
+           (write-char c current)
+           (loop (read-char in) current row (not in-string?)))
+          (#t
+           (write-char c current)
+           (loop (read-char in) current row in-string?)))))
 
 ;; Decode the string VAL into a Racket value. The decoding rules are:
 ;;
-;; * if the trimmed string is empty or equal? to NA, return #f
+;; * the trimmed string is passed to `na?` and if it returns #t, the value is
+;; considered a NA
 ;;
 ;; * if the trimmed string is enclosed in quotes, it is assumed to be a string
-;; and quotes are removed.  If quote-numbers? is #t, the string is tried to be
-;; decoded as a number anyway 
+;; and quotes are removed before passing the value to `na?`.  If
+;; quote-numbers? is #t, the string is tried to be decoded as a number anyway.
 ;;
 ;; * if it parses as a number, return the number
 ;;
 ;; * otherwise return it as a string.
 ;;
-(define (decode-value val na quoted-numbers?)
-  (and val
-       ;; string->number decodes #x #b and #o as hex, binary or octal. We
-       ;; could also recognize 0x as hex, but we don't for now.
-       (let* ((trimmed (string-trim val))
-              (radix 10)
-              (n (string-length trimmed)))
-         (cond ((or (= n 0) (equal? trimmed na)) #f)
-               ((and
-                 (>= n 2)
-                 (eqv? #\" (string-ref trimmed 0))
-                 (eqv? #\" (string-ref trimmed (sub1 n))))
-                (let ((v (substring trimmed 1 (sub1 n))))
-                  (if quoted-numbers? (or (string->number v radix) v) v)))
-               (#t
-                (or (string->number trimmed radix) trimmed))))))
+(define (decode-value val na? quoted-numbers?)
+  ;; string->number decodes #x #b and #o as hex, binary or octal. We could
+  ;; also recognize 0x as hex, but we don't for now.
+  (let* ((trimmed (string-trim val))
+         (radix 10)
+         (n (string-length trimmed)))
+    (cond ((na? trimmed) #f)
+          ((and
+            (>= n 2)
+            (eqv? #\" (string-ref trimmed 0))
+            (eqv? #\" (string-ref trimmed (sub1 n))))
+           (let ((v (substring trimmed 1 (sub1 n))))
+             (cond ((na? v) #f)
+                   (quoted-numbers? (or (string->number v radix) v))
+                   (#t v))))
+          (#t
+           (or (string->number trimmed radix) trimmed)))))
 
 ;; Read a data frame from the INPUT port, by decoding CSV input.  IF HEADERS?
 ;; is true, the first row in INPUT becomes the names of the columns,
@@ -154,28 +169,31 @@
 (define (read-csv input headers? na quoted-numbers?)
   (define df (make-data-frame))
   (define series #f)
-  (let loop ((line (read-line input 'any)))
-    (cond ((eof-object? line)
+  (define na? (if (procedure? na) na (lambda (v) (equal? v na))))
+  (define (decode cell) (decode-value cell na? quoted-numbers?))
+  (let loop ()
+    (cond ((eof-object? (peek-char input))
            (for ((s (in-vector series)))
              (df-add-series df s))
            df)
           (#t
-           (let ((slots (parse-line line)))
+           (let ((slots (parse-line input)))
              (if series
                  ;; Normally, a CSV file should have the same number of slots
                  ;; in each line, if there are more slots than series, we
                  ;; discard extra ones, if there is a shortfall, we add #f to
                  ;; the remaining series.
                  (let ((shortfall (max 0 (- (vector-length series) (length slots)))))
-                   (for ([s (in-vector series)] [v (in-list (append slots (make-list shortfall #f)))])
-                     (series-push-back s (decode-value v na quoted-numbers?))))
+                   (for ([s (in-vector series)]
+                         [v (in-list (append slots (make-list shortfall "")))])
+                     (series-push-back s (decode v))))
                  ;; First row
                  (if headers?
                      (let ((index 1))
                        (set! series
                              (for/vector ([h slots])
                                ;; Gracefully handle series with empty header names
-                               (let ((name (~a (decode-value h na quoted-numbers?))))
+                               (let ((name (~a (decode h))))
                                  (unless name
                                    (set! name (~a "col" index))
                                    (set! index (add1 index)))
@@ -184,8 +202,8 @@
                        (set! series (for/vector ([idx (in-range (length slots))])
                                       (make-series (format "col~a" idx))))
                        (for ([s (in-vector series)] [v (in-list slots)])
-                         (series-push-back s (decode-value v na quoted-numbers?)))))))
-           (loop (read-line input 'any))))))
+                         (series-push-back s (decode v)))))))
+           (loop)))))
 
 ;; Read CSV data in a data frame from the INP which is either a port or a
 ;; string, in which case it is assumed to be a file name.  IF HEADERS?  is
@@ -213,5 +231,7 @@
                     #:rest (listof string?)
                     any/c))
  (df-read/csv (->* ((or/c path-string? input-port?))
-                   (#:headers? boolean? #:na string? #:quoted-numbers? boolean?)
+                   (#:headers? boolean?
+                    #:na (or/c string? (-> string? boolean?))
+                    #:quoted-numbers? boolean?)
                    data-frame?)))
