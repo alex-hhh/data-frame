@@ -611,7 +611,7 @@
             #(#(1 2 3 4)
               #(4 5 6 "abc")
               #(7 8 9 "def,gh")
-              #(10 11 12 "a,bc\" 123 \"d\"ef")
+              #(10 11 12 "a,bc 123 d\"ef")
               #(14 15 #f #f)
               #("16" "17" #f #f))))
 
@@ -625,7 +625,7 @@
             #(#(1 2 3 4)
               #(4 5 6 "abc")
               #(7 8 9 "def,gh")
-              #(10 11 12 "a,bc\" 123 \"d\"ef")
+              #(10 11 12 "a,bc 123 d\"ef")
               #(14 15 #f #f)
               #(16 17 #f #f))))
 
@@ -646,7 +646,7 @@
      ;; Use a custom NA function which treats even numbers as NA.
      (let ((df (df-read/csv sample3-csv
                             #:na (lambda (v)
-                                   (let ((v (string->number v)))
+                                   (let ((v (if (string? v) (string->number v) v)))
                                      (and (number? v) (even? v)))))))
        (check = (df-count-na df "one") 4)
        (check = (df-count-na df "two") 2)))
