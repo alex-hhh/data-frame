@@ -3,7 +3,7 @@
 ;; statistics.rkt -- statistics calculations for data frames
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -124,12 +124,12 @@
  (df-set-default-weight-series (-> data-frame? (or/c #f string?) any/c))
  (df-get-default-weight-series (-> data-frame? (or/c #f string?)))
  (df-statistics (->* (data-frame? string?)
-                     (#:weight-series string?
+                     (#:weight-series (or/c #f string?)
                       #:start exact-nonnegative-integer?
                       #:stop exact-nonnegative-integer?)
                      (or/c #f statistics?)))
  (df-quantile (->* (data-frame? string?)
-                   (#:weight-series string?
+                   (#:weight-series (or/c #f string?)
                     #:less-than (-> any/c any/c boolean?))
                    #:rest (listof (between/c 0 1))
                    (or/c #f (listof real?)))))
