@@ -53,6 +53,7 @@
 (define-runtime-path sample-csv "./test-data/sample.csv")
 (define-runtime-path sample2-csv "./test-data/sample2.csv")
 (define-runtime-path sample3-csv "./test-data/sample3.csv")
+(define-runtime-path sample4-csv "./test-data/sample4.csv")
 (define-runtime-path gpx-test-file "./gpx-tests-t1.gpx")
 (define-runtime-path sample-gpx-file "./test-data/sample.gpx")
 (define-runtime-path sample-tcx-file "./test-data/activity_790564009.tcx")
@@ -676,7 +677,17 @@
       (lambda ()
         (call-with-input-string text (lambda (in) (df-read/csv in)))))
 
-     )))
+     )
+
+   (test-case "df-read/csv: duplicate header names"
+     (define df (df-read/csv sample4-csv))
+     (check equal? (sort (df-series-names df) string<?) '("one" "one (1)" "one (2)" "one (3)"))
+     (check equal? (df-select df "one") #(1 1))
+     (check equal? (df-select df "one (1)") #(2 2))
+     (check equal? (df-select df "one (2)") #(3 3))
+     (check equal? (df-select df "one (3)") #(4 4)))
+
+   ))
 
 
 (define gpx-tests

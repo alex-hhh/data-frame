@@ -195,7 +195,8 @@
   (unless (eof-object? (peek-char input))
     (define-values (first-row-cells series-count) (parse-line input qn?))
     (if headers?
-        (let ((index 1))
+        (let ((index 1)
+              (seen-header-names '()))
           (set! series
                 (for/list ([h (reverse first-row-cells)])
                   ;; Gracefully handle series with empty header names
@@ -203,6 +204,14 @@
                     (unless name
                       (set! name (~a "col" index))
                       (set! index (add1 index)))
+                    (let loop ([suffix 1]
+                               [seen? (member name seen-header-names)])
+                      (when seen?
+                        (let ([candidate (format "~a (~a)" name suffix)])
+                          (if (member candidate seen-header-names)
+                              (loop (add1 suffix) #t)
+                              (set! name candidate)))))
+                    (set! seen-header-names (cons name seen-header-names))
                     (make-series name #:capacity 100)))))
         (begin
           (set! series (for/list ([idx (in-range series-count)])
