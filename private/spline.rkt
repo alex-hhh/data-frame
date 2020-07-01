@@ -159,7 +159,7 @@
 ;; smoothly.  Our function will extend this over the entire domain, but
 ;; outside the data points the spline will turn into a line with the same
 ;; slope as the first and last data point.
-(: spline (-> Data-Series (-> Real (U False Real))))
+(: spline (-> Data-Series (-> Real Real)))
 (define (spline data-series)
   (when (or (and (vector? data-series) (< (vector-length data-series) 3))
             (and (list? data-series) (< (length data-series) 3)))
