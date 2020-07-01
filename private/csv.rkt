@@ -91,13 +91,15 @@
 ;;............................................................. read-csv ....
 
 (define (->cell data maybe-number? contains-whitespace?)
+  (define as-string (list->string (reverse data)))
   (if maybe-number?
-      (let ([v (if contains-whitespace? (string-trim data) data)])
+      (let ([v (if contains-whitespace? (string-trim as-string) as-string)])
         (or (string->number v 10) v))
-      data))
+      as-string))
 
+;; NOTE: returns a list of characters in reverse order
 (define (slurp-string in)
-  (let loop ((current "")
+  (let loop ((current '())
              (maybe-number? #t)
              (contains-whitespace? #f))
     (let ((c (read-char in)))
@@ -115,10 +117,10 @@
              (if (equal? (peek-char in) #\")
                  (begin
                    (read-char in)             ; consume the next char
-                   (loop (string-append current (string c)) maybe-number? contains-whitespace?))
+                   (loop (cons c current) maybe-number? contains-whitespace?))
                  (values current maybe-number? contains-whitespace?)))
             (#t
-             (loop (string-append current (string c))
+             (loop (cons c current)
                    (and maybe-number? (or (char-numeric? c) (char-punctuation? c)))
                    (or contains-whitespace? (char-whitespace? c))))))))
   
@@ -129,9 +131,9 @@
 ;;
 ;; NOTE: cells are produced in reverse order!
 (define (parse-line in quoted-numbers?)
-  (let loop ((current "")
-             (whitespace-run "")
-             (row '())
+  (let loop ((current null)
+             (whitespace-run null)
+             (row null)
              (cell-count 0)
              (maybe-number? #t)
              (contains-whitespace? #f))
@@ -154,32 +156,32 @@
               (add1 cell-count)))
             ((equal? c #\,)
              ;; NOTE: will discard last whitespace-run
-             (loop "" "" (cons (->cell current maybe-number? contains-whitespace?) row) (add1 cell-count) #t #f))
+             (loop null null (cons (->cell current maybe-number? contains-whitespace?) row) (add1 cell-count) #t #f))
             ((char-whitespace? c)
-             (if (equal? current "")
+             (if (null? current)
                  ;; Discard whitespaces at the start of the string
-                 (loop current "" row cell-count maybe-number? contains-whitespace?)
+                 (loop current '() row cell-count maybe-number? contains-whitespace?)
                  (loop current
-                       (string-append whitespace-run (string c))
+                       (cons c whitespace-run)
                        row
                        cell-count
                        maybe-number?
                        contains-whitespace?)))
             ((equal? c #\")
              (define-values (s m w) (slurp-string in))
-             (loop (string-append current whitespace-run s)
-                   ""
+             (loop (append s whitespace-run current)
+                   '()
                    row
                    cell-count
                    (and quoted-numbers? maybe-number? m)
                    (or contains-whitespace? w)))
             (#t
-             (loop (string-append current whitespace-run (string c))
-                   ""
+             (loop (cons c (append whitespace-run current))
+                   '()
                    row
                    cell-count
                    (and maybe-number? (or (char-numeric? c) (char-punctuation? c)))
-                   (or contains-whitespace? (not (equal? whitespace-run "")))))))))
+                   (or contains-whitespace? (not (null? whitespace-run)))))))))
 
 ;; Read a data frame from the INPUT port, by decoding CSV input.  IF HEADERS?
 ;; is true, the first row in INPUT becomes the names of the columns,

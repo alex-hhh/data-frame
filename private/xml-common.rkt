@@ -90,7 +90,12 @@
 ;; contents, white space is collapsed and comments are skipped.
 (define (slurp-xml in)
   (parameterize ((collapse-whitespace #t)
-                 (read-comments #f))
+                 (read-comments #f)
+                 ;; This is unintuitive, setting xml-count-bytes to #t will
+                 ;; prevent line counting on the input port, and will speed up
+                 ;; parsing, we'll be missing locations in the xml elements,
+                 ;; but they are not used anyway.
+                 (xml-count-bytes #t))
     (read-xml/document in)))
 
 (provide/contract
