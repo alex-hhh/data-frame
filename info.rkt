@@ -9,7 +9,13 @@
                "typed-racket-lib"
                "rackunit-lib"
                "base"))
-(define build-deps '("scribble-lib" "racket-doc" "rackunit-lib" "db-doc" "math-doc" "plot-doc"))
+(define build-deps '("scribble-lib"
+                     "racket-doc"
+                     "rackunit-lib"
+                     "db-doc"
+                     "math-doc"
+                     "plot-doc"
+                     "al2-test-runner"))
 (define scribblings '(("scribblings/data-frame.scrbl" ())))
 (define pkg-desc "Data Frame")
 (define version "0.0")

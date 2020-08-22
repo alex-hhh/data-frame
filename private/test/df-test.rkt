@@ -30,7 +30,8 @@
          racket/vector
          math/statistics
          racket/runtime-path
-         db)
+         db
+         al2-test-runner)
 
 (require "../bsearch.rkt"
          "../series.rkt"
@@ -46,8 +47,7 @@
          "../histogram.rkt"
          "../rdp-simplify.rkt"
          "../least-squares-fit.rkt"
-         "../scatter.rkt"
-         "custom-test-runner.rkt")
+         "../scatter.rkt")
 
 (define-runtime-path csv-test-file "./csv-tests-t1.csv")
 (define-runtime-path sample-csv "./test-data/sample.csv")
