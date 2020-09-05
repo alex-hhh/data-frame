@@ -30,8 +30,7 @@
          racket/vector
          math/statistics
          racket/runtime-path
-         db
-         al2-test-runner)
+         db)
 
 (require "../bsearch.rkt"
          "../series.rkt"
@@ -1055,6 +1054,7 @@
 ;;................................................................. rest ....
 
 (module+ test
+  (require al2-test-runner)
   (run-tests #:package "data-frame"
              #:results-file "test-results-data-frame.xml"
              bsearch-tests
