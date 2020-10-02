@@ -3,7 +3,7 @@
 ;; slr.rkt -- simple linear regression utilities
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -38,7 +38,8 @@
         (r (correlation xs ys)))
     (let* ((beta (* r (/ (statistics-stddev y-stats) (statistics-stddev x-stats))))
            (alpha (- (statistics-mean y-stats) (* beta (statistics-mean x-stats)))))
-      (slr alpha beta r))))
+      ;; NOTE: +nan.0 and +inf.0 are numbers as far as `number?` is concerned.
+      (and (rational? alpha) (rational? beta) (rational? r) (slr alpha beta r)))))
 
 ;; Return a function renderer for the linear regression defined by SLR
 (define (slr-renderer slr)
@@ -55,5 +56,5 @@
  (slr? (-> any/c boolean?))
  (make-slr (->* ((listof number?) (listof number?))
                 ((listof number?))
-                slr?))
+                (or/c slr? #f)))
  (slr-renderer (-> slr? (treeof renderer2d?))))

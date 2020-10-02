@@ -3,7 +3,7 @@
 ;; df-test.rkt -- tests for data-frame.rkt
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -46,7 +46,8 @@
          "../histogram.rkt"
          "../rdp-simplify.rkt"
          "../least-squares-fit.rkt"
-         "../scatter.rkt")
+         "../scatter.rkt"
+         "../slr.rkt")
 
 (define-runtime-path csv-test-file "./csv-tests-t1.csv")
 (define-runtime-path sample-csv "./test-data/sample.csv")
@@ -1050,6 +1051,16 @@
      ;; (check-modified-residuals fit-pow df "base2" "pow")
 
      )))
+
+(define slr-tests
+  (test-suite
+   "slr"
+   (test-case "AB#26 no slr"
+     ;; No linear regression can be generated if the XS series has a 0
+     ;; standard deviation (i.e. all values are the same)
+     (check-equal? (make-slr '(1 1 1) '(1 2 3)) #f))))
+
+
 
 ;;................................................................. rest ....
 
@@ -1069,4 +1080,5 @@
              histogram-tests
              rdp-simplify-tests
              scatter-tests
-             least-squares-fit-tests))
+             least-squares-fit-tests
+             slr-tests))
