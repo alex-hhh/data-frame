@@ -603,7 +603,7 @@ defined for the data frame, see @racket[df-set-default-weight-series].
 Return the quantiles for the @racket[series] in the data frame
 @racket[df].  A list of quantiles is returned as specified by
 @racket[qvalue], or if no quantiles are specified, the list @racket[(0
-0.25 0.5 1)] is used. @racket[#:weight-series] has the usual meaning,
+0.25 0.5 0.75 1)] is used. @racket[#:weight-series] has the usual meaning,
 @racket[less-than] is the ordering function passed to the
 @racket[quantile] function.
 

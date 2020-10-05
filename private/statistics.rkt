@@ -78,7 +78,7 @@
 
 ;; Return the quantiles for the series COLUMN in the dataframe DF.  A list of
 ;; quantiles is returned as specified by QVALUES, or if no quantiles are
-;; specified, the list (0 0.25 0.5 1) is used. #:weight-series has the usual
+;; specified, the list (0 0.25 0.5 0.75 1) is used. #:weight-series has the usual
 ;; meaning, #:less-than is the ordering function passed to the `quantile`
 ;; function.
 (define (df-quantile df column
