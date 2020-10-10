@@ -827,7 +827,7 @@ transform a value of @racket[300] into the label @racket["5:00"].
 @defmodule[data-frame/gpx]
 
 This module provides functions for reading and writing data frames using the
-@hyperlink["https://en.wikipedia.org/wiki/GPS_Exchange_Format"]{GPX Exchange
+@hyperlink["https://en.wikipedia.org/wiki/GPS_Exchange_Format"]{GPS Exchange
 Format (GPX)}.
 
 @defproc[(df-read/gpx (input (or/c path-string? input-port?)))
