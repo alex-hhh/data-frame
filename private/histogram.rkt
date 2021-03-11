@@ -3,7 +3,7 @@
 ;; histogram.rkt -- histograms and histogram plots for data frames
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -35,6 +35,8 @@
 ;; samples into intervals (can be less than 1).  INCLUDE-ZEROES? if #f will
 ;; cause values that are equal to 0 to be discarded.
 (define (samples->buckets df series
+                          #:start start
+                          #:stop stop
                           #:weight-series (weight #f)
                           #:initial-buckets [initial-buckets (make-hash)]
                           #:bucket-width [bucket-width 1]
@@ -78,7 +80,8 @@
    df
    (if weight (list weight series) (list series))
    initial-buckets
-   (if weight weighted-binning unweighted-binning)))
+   (if weight weighted-binning unweighted-binning)
+   #:start start #:stop stop))
 
 ;; Create a histogram from BUCKETS (a hash table mapping sample value to its
 ;; rank), as produced by `samples->buckets`.  A histogram is a vector where
@@ -175,6 +178,8 @@
 ;; created so that the buckets are also consecutive.
 ;;
 (define (df-histogram df series
+                      #:start (start 0)
+                      #:stop (stop (df-row-count df))
                       #:weight-series [weight (df-get-default-weight-series df)]
                       #:bucket-width [bwidth 1]
                       #:trim-outliers [trim #f]
@@ -185,6 +190,8 @@
       (let ()
         (define buckets
           (samples->buckets df series
+                            #:start start
+                            #:stop stop
                             #:weight-series weight
                             #:bucket-width bwidth
                             #:include-zeroes? zeroes?))
@@ -254,6 +261,7 @@
 ;; (see `format-values`)
 (define (histogram-renderer data
                             #:color [color #f]
+                            #:alpha [alpha 0.8]
                             #:skip [skip (discrete-histogram-skip)]
                             #:x-min [x-min 0]
                             #:label [label #f]
@@ -280,7 +288,7 @@
     (add-arg '#:gap 0.15)
     (when color
       (add-arg '#:color color)
-      (add-arg '#:alpha 0.8))
+      (add-arg '#:alpha alpha))
     ;; Blank some of the labels, and format the remaining ones.
     (define bdata (if blank? (blank-some-labels data) data))
     (define fdata (if xfmt (format-values xfmt bdata) bdata))
@@ -330,7 +338,8 @@
                                  label1 label2
                                  #:x-value-formatter [xfmt #f]
                                  #:color1 [color1 #f]
-                                 #:color2 [color2 #f])
+                                 #:color2 [color2 #f]
+                                 #:alpha [alpha 0.8])
   (define data1 (make-vector (vector-length combined-histogram) #f))
   (define data2 (make-vector (vector-length combined-histogram) #f))
   (for ([(e index) (in-indexed (in-vector combined-histogram))])
@@ -338,9 +347,13 @@
     (vector-set! data2 index (vector (vector-ref e 0) (vector-ref e 2))))
   (list
    (histogram-renderer
-    data1 #:color color1 #:skip 2.5 #:x-min 0 #:label label1 #:x-value-formatter xfmt)
+    data1
+    #:color color1 #:alpha alpha
+    #:skip 2.5 #:x-min 0 #:label label1 #:x-value-formatter xfmt)
    (histogram-renderer
-    data2 #:color color2 #:skip 2.5 #:x-min 1 #:label label2 #:x-value-formatter xfmt)))
+    data2
+    #:color color2 #:alpha alpha
+    #:skip 2.5 #:x-min 1 #:label label2 #:x-value-formatter xfmt)))
 
 ;; Split the histogram HIST into sub-histograms using FACTOR-FN (which maps
 ;; the histogram value to a symbol).  Returns a list of (cons TAG SUB-HIST).
@@ -374,6 +387,7 @@
 ;; Create a plot rendered where DATA (a histogram) is split into sections by
 ;; FACTOR-FN and each section is colored according to FACTOR-COLORS
 (define (histogram-renderer/factors data factor-fn factor-colors
+                                    #:alpha [alpha 0.8]
                                     #:x-value-formatter [xfmt #f])
   (define factored-data (factor-histogram data factor-fn))
   (define x 0)
@@ -383,6 +397,7 @@
     (begin0
         (histogram-renderer fdata
                             #:color color
+                            #:alpha alpha
                             #:x-min x
                             #:x-value-formatter xfmt
                             #:blank-some-labels #f ; we already blanked them
@@ -402,7 +417,9 @@
 
 (provide/contract
  (df-histogram (->* (data-frame? string?)
-                    (#:weight-series (or/c #f string?)
+                    (#:start index/c
+                     #:stop index/c
+                     #:weight-series (or/c #f string?)
                      #:bucket-width real?
                      #:trim-outliers (or/c #f (between/c 0 1))
                      #:include-zeroes? boolean?
@@ -412,6 +429,7 @@
  (combine-histograms (-> histogram/c histogram/c combined-histogram/c))
  (histogram-renderer (->* (histogram/c)
                           (#:color any/c
+                           #:alpha (between/c 0 1)
                            #:skip real?
                            #:x-min real?
                            #:label (or/c #f string?)
@@ -421,10 +439,12 @@
  (histogram-renderer/dual (->* (combined-histogram/c string?  string?)
                                (#:color1 any/c
                                 #:color2 any/c
+                                #:alpha (between/c 0 1)
                                 #:x-value-formatter (or/c #f (-> number? string?)))
                                (treeof renderer2d?)))
  (histogram-renderer/factors (->* (histogram/c
                                    (-> real? symbol?) ; factor function
                                    (listof (cons/c symbol? color/c)))
-                                  (#:x-value-formatter (or/c #f (-> number? string?)))
+                                  (#:alpha (between/c 0 1)
+                                   #:x-value-formatter (or/c #f (-> number? string?)))
                                   (treeof renderer2d?))))
