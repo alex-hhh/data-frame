@@ -179,13 +179,13 @@
   (define df (make-data-frame))
 
   (when product-id
-    (df-put-property df 'product-id product-id))
+    (df-put-property! df 'product-id product-id))
   (when unit-id
-    (df-put-property df 'unit-id unit-id))
+    (df-put-property! df 'unit-id unit-id))
   (when sport
     ;; Use the key tcx-sport to avoid confusion with sport which is used by
     ;; ActivityLog2 data frames
-    (df-put-property df 'tcx-sport sport))
+    (df-put-property! df 'tcx-sport sport))
   
   (when (for/first ([e (in-vector timestamp)] #:when e) e)
     ;; We have timestamps in this TCX file, but they may or may not be sorted.
@@ -194,11 +194,11 @@
       (with-handlers
         (((lambda (e) #t) (lambda (e) (make-series "timestamp" #:data timestamp))))
         (make-series "timestamp" #:data timestamp #:cmpfn <=)))
-    (df-add-series df ts))
+    (df-add-series! df ts))
 
   (define (maybe-add name data)
     (when (and data (for/first ([e (in-vector data)] #:when e) e))
-      (df-add-series df (make-series name #:data data))))
+      (df-add-series! df (make-series name #:data data))))
 
   (maybe-add "lat" lat)
   (maybe-add "lon" lon)
@@ -214,7 +214,7 @@
   ;; not present in the data file.
   (when (and (df-contains? df "lat" "lon") (not (df-contains? df "dst")))
     (define dst 0)
-    (df-add-derived
+    (df-add-derived!
      df
      "dst"
      '("lat" "lon")
@@ -230,9 +230,9 @@
   ;; order, and marking it as sorted will fail, ignore such a failure.
   (with-handlers
     (((lambda (e) #t) (lambda (e) (void))))
-    (df-set-sorted df "dst" <=))
+    (df-set-sorted! df "dst" <=))
 
-  (df-put-property df 'laps (reverse laps))
+  (df-put-property! df 'laps (reverse laps))
 
   df)
 

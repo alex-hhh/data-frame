@@ -138,7 +138,7 @@
 
 ;; Put the property (KEY, VALUE) inside the data frame DF, possibly replacing
 ;; an existing one for KEY.
-(define (df-put-property df key value)
+(define (df-put-property! df key value)
   (match-define (data-frame _ _ _ _ properties) df)
   (hash-set! properties key value))
 
@@ -150,7 +150,7 @@
   (hash-ref properties key default-value-fn))
 
 ;; Delete the property KEY in the data frame DF.
-(define (df-del-property df key)
+(define (df-del-property! df key)
   (match-define (data-frame _ _ _ _ properties) df)
   (hash-remove! properties key))
 
@@ -424,7 +424,7 @@
 ;; Add SERIES to the data frame DF.  The new series must have the same number
 ;; of rows as existing series in the data frame, unless the data frame is
 ;; empty.
-(define (df-add-series df s)
+(define (df-add-series! df s)
   (match-define (data-frame _ _ series delayed _) df)
   ;; Check if the series has the same number of rows as the rest of the
   ;; series (if there are any other series in the data frame)
@@ -432,12 +432,12 @@
         (name (series-name s))
         (size (series-size s)))
     (unless (or (hash-empty? series) (equal? nrows size))
-      (df-raise "df-add-series (\"~a\"): bad length ~a, expecting ~a" name size nrows))
+      (df-raise "df-add-series! (\"~a\"): bad length ~a, expecting ~a" name size nrows))
     (hash-set! series name s)))
 
 ;; Remove series NAME from the data frame, does nothing if the series does not
 ;; exist.
-(define (df-del-series df name)
+(define (df-del-series! df name)
   (match-define (data-frame _ _ series delayed _) df)
   (hash-remove! series name)
   (hash-remove! delayed name))
@@ -446,32 +446,32 @@
 ;; existing series.  The data for the series is created using `df-map` by
 ;; applying VALUE-FN on BASE-SERIES and the new data is added to the data
 ;; frame.  See `df-map` for notes on the VALUE-FN.
-(define (df-add-derived df name base-series value-fn)
+(define (df-add-derived! df name base-series value-fn)
   (define data (df-map df base-series value-fn))
   (define col (make-series name #:data data))
-  (df-add-series df col))
+  (df-add-series! df col))
 
 ;; Add a new series to the data frame, but delay creating it until it is
 ;; referenced.  This function allows adding many series to a data frame, with
 ;; the expectation that the cost to create those series is paid when (and if)
 ;; they are used.
-(define (df-add-lazy df name base-series value-fn)
+(define (df-add-lazy! df name base-series value-fn)
   (match-define (data-frame _ _ _ delayed _) df)
   (hash-set! delayed name
-             (lambda () (df-add-derived df name base-series value-fn))))
+             (lambda () (df-add-derived! df name base-series value-fn))))
 
 ;; Mark the SERIES as sorted according to CMPFN.  This does not actually sort
 ;; the data series, it just tells the data frame that the series can be used
 ;; for index lookup.  An error is raised if the series is not actually sorted
 ;; or if it contains NA values.
-(define (df-set-sorted df series cmpfn)
+(define (df-set-sorted! df series cmpfn)
   (define col (df-get-series df series))
   (series-bless-sorted col cmpfn))
 
 ;; Set the contract for values in the data SERIES to CONTRACTFN.  An exception
 ;; is thrown if not all values in SERIES match contractfn or are NA (the
 ;; contractfn need not return #t for the NA value)
-(define (df-set-contract df series contractfn)
+(define (df-set-contract! df series contractfn)
   (define col (df-get-series df series))
   (series-bless-contract col contractfn))
 
@@ -526,11 +526,9 @@
  (df-property-names (-> data-frame? (listof symbol?)))
  (df-contains? (->* (data-frame?) () #:rest (listof string?) boolean?))
  (df-contains/any? (->* (data-frame?) () #:rest (listof string?) boolean?))
- (df-put-property (-> data-frame? symbol? any/c any/c))
- (rename df-put-property df-put-property! (-> data-frame? symbol? any/c any/c))
+ (df-put-property! (-> data-frame? symbol? any/c any/c))
  (df-get-property (->* (data-frame? symbol?) (any/c) any/c))
- (df-del-property (-> data-frame? symbol? any/c))
- (rename df-del-property df-del-property! (-> data-frame? symbol? any/c))
+ (df-del-property! (-> data-frame? symbol? any/c))
  (df-row-count (-> data-frame? exact-nonnegative-integer?))
  (df-select (->* (data-frame? string?) (#:filter (or/c #f (-> any/c any/c))
                                         #:start index/c #:stop index/c)
@@ -565,18 +563,12 @@
  (df-fold (->* (data-frame? (or/c string? (listof string?)) any/c foldfn/c)
                (#:start index/c #:stop index/c)
                any/c))
- (df-add-series (-> data-frame? series? any/c))
- (rename df-add-series df-add-series! (-> data-frame? series? any/c))
- (df-del-series (-> data-frame? string? any/c))
- (rename df-del-series df-del-series! (-> data-frame? string? any/c))
- (df-add-derived (-> data-frame? string? (listof string?) mapfn/c any/c))
- (rename df-add-derived df-add-derived! (-> data-frame? string? (listof string?) mapfn/c any/c))
- (df-add-lazy (-> data-frame? string? (listof string?) mapfn/c any/c))
- (rename df-add-lazy df-add-lazy! (-> data-frame? string? (listof string?) mapfn/c any/c))
- (df-set-sorted (-> data-frame? string? (or/c #f (-> any/c any/c boolean?)) any/c))
- (rename df-set-sorted df-set-sorted! (-> data-frame? string? (or/c #f (-> any/c any/c boolean?)) any/c))
- (df-set-contract (-> data-frame? string? (or/c #f (-> any/c boolean?)) any/c))
- (rename df-set-contract df-set-contract! (-> data-frame? string? (or/c #f (-> any/c boolean?)) any/c))
+ (df-add-series! (-> data-frame? series? any/c))
+ (df-del-series! (-> data-frame? string? any/c))
+ (df-add-derived! (-> data-frame? string? (listof string?) mapfn/c any/c))
+ (df-add-lazy! (-> data-frame? string? (listof string?) mapfn/c any/c))
+ (df-set-sorted! (-> data-frame? string? (or/c #f (-> any/c any/c boolean?)) any/c))
+ (df-set-contract! (-> data-frame? string? (or/c #f (-> any/c boolean?)) any/c))
  (df-count-na (-> data-frame? string? exact-nonnegative-integer?))
  (df-shallow-copy (-> data-frame? data-frame?))
  (df-is-na? (-> data-frame? string? any/c boolean?))
@@ -584,3 +576,14 @@
  (df-has-non-na? (-> data-frame? string? boolean?))
  (data-frame? (-> any/c boolean?))
  (valid-only (-> any/c boolean?)))
+
+;; XXX: names kept for compatibility
+(provide/contract
+  (rename df-put-property! df-put-property (-> data-frame? symbol? any/c any/c))
+  (rename df-del-property! df-del-property (-> data-frame? symbol? any/c))
+  (rename df-add-series! df-add-series (-> data-frame? series? any/c))
+  (rename df-del-series! df-del-series (-> data-frame? string? any/c))
+  (rename df-add-derived! df-add-derived (-> data-frame? string? (listof string?) mapfn/c any/c))
+  (rename df-add-lazy! df-add-lazy (-> data-frame? string? (listof string?) mapfn/c any/c))
+  (rename df-set-sorted! df-set-sorted (-> data-frame? string? (or/c #f (-> any/c any/c boolean?)) any/c))
+  (rename df-set-contract! df-set-contract (-> data-frame? string? (or/c #f (-> any/c boolean?)) any/c)))

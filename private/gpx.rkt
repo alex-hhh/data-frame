@@ -342,8 +342,8 @@
   (define lon-col (make-series "lon" #:data lon))
 
   (define df (make-data-frame))
-  (df-add-series df lat-col)
-  (df-add-series df lon-col)
+  (df-add-series! df lat-col)
+  (df-add-series! df lon-col)
 
   (when (for/first ([e (in-vector timestamp)] #:when e) e)
     ;; We have timestamps in this GPX file, but they may or may not be sorted.
@@ -352,11 +352,11 @@
       (with-handlers
         (((lambda (e) #t) (lambda (e) (make-series "timestamp" #:data timestamp))))
         (make-series "timestamp" #:data timestamp #:cmpfn <=)))
-    (df-add-series df ts))
+    (df-add-series! df ts))
 
   (define (maybe-add name data)
     (when (and data (for/first ([e (in-vector data)] #:when e) e))
-      (df-add-series df (make-series name #:data data))))
+      (df-add-series! df (make-series name #:data data))))
 
   (maybe-add "alt" alt)
   (maybe-add "temp" temperature)
@@ -370,7 +370,7 @@
   ;; not present in the data file.
   (when (and (df-contains? df "lat" "lon") (not (df-contains? df "dst")))
     (define dst 0)
-    (df-add-derived
+    (df-add-derived!
      df
      "dst"
      '("lat" "lon")
@@ -386,11 +386,11 @@
   ;; order, and marking it as sorted will fail, ignore such a failure.
   (with-handlers
     (((lambda (e) #t) (lambda (e) (void))))
-    (df-set-sorted df "dst" <=))
+    (df-set-sorted! df "dst" <=))
 
   (define track-name (get-track-name track))
   (when track-name
-    (df-put-property df 'name track-name))
+    (df-put-property! df 'name track-name))
   (define waypoints (parse-all-way-points gpx))
   ;; Try to reconstruct the 'laps property from the way points -- this will
   ;; not work very well if the way points don't have a timestamp and the GPX
@@ -399,8 +399,8 @@
     (for/list ([wpt (in-list waypoints)])
       (match-define (list timestamp lat lon elevation name) wpt)
       (or timestamp (get-closest-timestamp df lat lon))))
-  (df-put-property df 'waypoints waypoints)
-  (df-put-property df 'laps (filter values laps))
+  (df-put-property! df 'waypoints waypoints)
+  (df-put-property! df 'laps (filter values laps))
 
   df)
 

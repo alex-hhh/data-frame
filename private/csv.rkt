@@ -241,7 +241,7 @@
             (series-push-back series (decode cell))))
         (row-loop)))
     (for ((s (in-list series)))
-      (df-add-series df s)))
+      (df-add-series! df s)))
   df)
 
 ;; Read CSV data in a data frame from the INP which is either a port or a

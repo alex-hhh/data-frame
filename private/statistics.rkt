@@ -33,8 +33,8 @@
 ;; variable intervals, simply averaging the values will not produce an
 ;; accurate average, if a timer series is also present, it can be used as a
 ;; weight series to produce a better average.
-(define (df-set-default-weight-series df series)
-  (df-put-property df 'weight-series series))
+(define (df-set-default-weight-series! df series)
+  (df-put-property! df 'weight-series series))
 
 ;; Return the name of the weight series for this data frame.
 (define (df-get-default-weight-series df)
@@ -121,7 +121,7 @@
 ;;............................................................. provides ....
 
 (provide/contract
- (df-set-default-weight-series (-> data-frame? (or/c #f string?) any/c))
+ (df-set-default-weight-series! (-> data-frame? (or/c #f string?) any/c))
  (df-get-default-weight-series (-> data-frame? (or/c #f string?)))
  (df-statistics (->* (data-frame? string?)
                      (#:weight-series (or/c #f string?)
@@ -133,3 +133,8 @@
                     #:less-than (-> any/c any/c boolean?))
                    #:rest (listof (between/c 0 1))
                    (or/c #f (listof real?)))))
+
+;; XXX: for compatibility
+(provide/contract
+ (rename df-set-default-weight-series! df-set-default-weight-series
+         (-> data-frame? (or/c #f string?) any/c)))
