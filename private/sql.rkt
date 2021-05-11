@@ -52,7 +52,7 @@
     (for ([h (in-list headers)]
           [s (in-list data-series)])
       (let ((col (make-series h #:data s)))
-        (df-add-series df col))))
+        (df-add-series! df col))))
 
   df)
 

@@ -30,13 +30,13 @@
 
 (define (generate-least-squares-fit-test-file output)
   (define tdf (make-data-frame))
-  (df-add-series
+  (df-add-series!
    tdf
    (make-series "base"
                 #:data (for/vector ([n (in-range 100)]) (- n 50))))
   ;; Add a second base, which contains only positive values, logarithmic and
   ;; power law fitting can only be done on positive values.
-  (df-add-derived
+  (df-add-derived!
    tdf
    "base2"
    '("base")
@@ -46,7 +46,7 @@
 
   ;; Add a linear series for fitting a linear function.  The data points will
   ;; be mildly randomized
-  (df-add-derived
+  (df-add-derived!
    tdf "linear" '("base")
    (lambda (v)
      (match-define (list x) v)
@@ -55,7 +55,7 @@
 
   ;; Add a second degree polynomial series, the data points being mildly
   ;; randomized.
-  (df-add-derived
+  (df-add-derived!
    tdf "second" '("base")
    (lambda (v)
      (match-define (list x) v)
@@ -64,7 +64,7 @@
 
   ;; Add a third degree polynomial series, the data points being mildly
   ;; randomized.
-  (df-add-derived
+  (df-add-derived!
    tdf "third" '("base")
    (lambda (v)
      (match-define (list x) v)
@@ -72,7 +72,7 @@
      (+ r (+ (* -2.1 x x x) (* 1.5 x x) (* -2 x) 12))))
 
   ;; Add an exponential series, the data points being mildly randomized.
-  (df-add-derived
+  (df-add-derived!
    tdf "exp" '("base")
    (lambda (v)
      (match-define (list x) v)
@@ -80,7 +80,7 @@
      (+ r (* 3.5 (exp (* 0.1 x))))))
 
   ;; Add a logarithmic series, the data points being mildly randomized.
-  (df-add-derived
+  (df-add-derived!
    tdf "log" '("base2")
    (lambda (v)
      (match-define (list x) v)
@@ -88,7 +88,7 @@
      (+ r 5.8 (* 7.3 (log x)))))
 
   ;; Add a power series, the data points being mildly randomized
-  (df-add-derived
+  (df-add-derived!
    tdf "pow" '("base2")
    (lambda (v)
      (match-define (list x) v)

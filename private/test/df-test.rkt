@@ -303,15 +303,15 @@
      (define c1 (make-series "col1" #:data #(1 2 3 4) #:contract integer? #:cmpfn <))
      (check-not-exn
       (lambda ()
-        (df-add-series df c1)))
+        (df-add-series! df c1)))
      (check equal? (df-count-na df "col1") 0)
      (define c2 (make-series "col2" #:data #(3 2 1 0) #:contract integer? #:cmpfn >))
      (check-not-exn
       (lambda ()
-        (df-add-series df c2)))
+        (df-add-series! df c2)))
      (check-not-exn
       (lambda ()
-        (df-add-derived
+        (df-add-derived!
          df "col3" '("col1" "col2")
          (lambda (v)
            (match-define (list c1 c2) v)
@@ -321,7 +321,7 @@
       (lambda ()
         ;; This will fail as col0 has 2 rows
         (define c0 (make-series "col0" #:data #(1 2)))
-        (df-add-series df c0)))
+        (df-add-series! df c0)))
      (check = (df-row-count df) 4)
      (check-true (df-contains? df "col1" "col2"))
      ;; NOTE: col4 does not exist
@@ -330,12 +330,12 @@
      (check-true (df-contains? df "col3"))
      (check-not-exn
       (lambda ()
-        (df-del-series df "col3")))
+        (df-del-series! df "col3")))
      (check-false (df-contains? df "col3"))
      ;; Deleting a non-existent series should be OK
      (check-not-exn
       (lambda ()
-        (df-del-series df "col3")))
+        (df-del-series! df "col3")))
 
      (check equal? (df-select df "col1") #(1 2 3 4))
      (check equal? (df-select df "col1" #:filter odd?) #(1 3))
@@ -530,9 +530,9 @@
      ;; Check that it was indeed set!
      (check = (df-ref df 0 "col1") -1)
 
-     (check-not-exn
+     (check-not-exn
       (lambda ()
-        (df-add-lazy
+        (df-add-lazy!
          df "col5" '("col1" "col2")
          (lambda (v)
            (match-define (list c1 c2) v)
@@ -542,15 +542,15 @@
      (check equal? (df-select df "col5") #(2 4 4 4))
 
      (define c6 (make-series "col6" #:data #(1 2 3 4) #:contract integer?))
-     (df-add-series df c6)
+     (df-add-series! df c6)
      (check-not-exn
       (lambda ()
-        (df-set-sorted df "col6" <)))
+        (df-set-sorted! df "col6" <)))
      (check-exn
       exn:fail:data-frame?
       (lambda ()
         ;; wrong sort order
-        (df-set-sorted df "col6" >)))
+        (df-set-sorted! df "col6" >)))
 
      (check-not-exn
       (lambda ()
@@ -657,8 +657,8 @@
      
      (define s1 (make-series "s,1" #:data #(1 1/2 3 #f 5) #:na #f))
      (define s2 (make-series "s,2" #:data #("one" "two" "th\"ree" #f "") #:na ""))
-     (df-add-series df s1)
-     (df-add-series df s2)
+     (df-add-series! df s1)
+     (df-add-series! df s2)
 
      (define text (call-with-output-string
                    (lambda (out) (df-write/csv df out))))
@@ -763,7 +763,7 @@
      (define df (df-read/csv sample-1136-file))
      (check-not-exn
       (lambda ()
-        (df-set-default-weight-series df #f)))
+        (df-set-default-weight-series! df #f)))
 
      (define s (df-statistics df "spd"))
      (check < (abs (- (statistics-mean s) 0.88)) 1e-2)
@@ -781,7 +781,7 @@
 
      (check-not-exn
       (lambda ()
-        (df-set-default-weight-series df "timer")))
+        (df-set-default-weight-series! df "timer")))
 
      (define w (df-statistics df "spd"))
      (check < (abs (- (statistics-mean w) 0.81)) 1e-2)
@@ -820,12 +820,12 @@
 
      ;; Add a string series classifying the heart rate.  We get a histogram of
      ;; this classification and check that too...
-     (df-add-derived df-1136 "spd-tag" '("spd")
-                     (lambda (val)
-                       (match-define (list spd) val)
-                       (cond ((< spd 1.0) "low")
-                             ((> spd 1.1) "high")
-                             (#t "med"))))
+     (df-add-derived! df-1136 "spd-tag" '("spd")
+                      (lambda (val)
+                        (match-define (list spd) val)
+                        (cond ((< spd 1.0) "low")
+                              ((> spd 1.1) "high")
+                              (#t "med"))))
      (let ((h (df-histogram df-1136 "spd-tag")))
        (check = (vector-length h) 3)      ; the three tags
        (let ((n (for/sum ([item (in-vector h)]) (vector-ref item 1))))
