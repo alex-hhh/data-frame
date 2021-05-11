@@ -108,17 +108,21 @@ the data series, except NA values must satisfy this contract.
 
 }
 
-@defproc[(df-add-series (df data-frame?) (series series?)) any/c]{Add
-a new series to the data frame.  If the data frame is empty, the
+@defproc*[([(df-add-series (df data-frame?) (series series?)) any/c]
+           [(df-add-series! (df data-frame?) (series series?)) any/c])]{
+Add a new series to the data frame.  If the data frame is empty, the
 series can have any number of elements, otherwise it must have the
 same number of elements as the other series in the data frame.  See
 also @racket[df-row-count], @racket[make-series]}
 
-@defproc[(df-del-series (df data-frame?) (name string?)) any/c]{Remove
-the series named @racket[name] from the data frame @racket[df]}
+@defproc*[([(df-del-series (df data-frame?) (name string?)) any/c]
+           [(df-del-series! (df data-frame?) (name string?)) any/c])]{
+Remove the series named @racket[name] from the data frame @racket[df]}
 
-@defproc[(df-add-derived (df data-frame?) (name string?) (base-series
-(listof string?)) (value-fn mapfn/c)) any/c]{
+@defproc*[([(df-add-derived (df data-frame?) (name string?) (base-series
+             (listof string?)) (value-fn mapfn/c)) any/c]
+           [(df-add-derived! (df data-frame?) (name string?) (base-series
+             (listof string?)) (value-fn mapfn/c)) any/c])]{
 
 Add a new series named @racket[name] to the data frame @racket[df]
 with values that are computed from existing series.  The data for the
@@ -131,8 +135,10 @@ will be replaced.
 
 }
 
-@defproc[(df-add-lazy (df data-frame?) (name string?) (base-series
-(listof string?)) (value-fn mapfn/c)) any/c]{
+@defproc*[([(df-add-lazy (df data-frame?) (name string?) (base-series
+             (listof string?)) (value-fn mapfn/c)) any/c]
+           [(df-add-lazy! (df data-frame?) (name string?) (base-series
+             (listof string?)) (value-fn mapfn/c)) any/c])]{
 
 Add a new series to the data frame, but delay creating it until it is
 referenced.  This function allows adding many series to a data frame,
@@ -142,8 +148,10 @@ names.
 
 }
 
-@defproc[(df-set-sorted (df data-frame?) (name string?) (cmpfn (or/c
-#f (-> any/c any/c boolean?)))) any/c]{
+@defproc*[([(df-set-sorted (df data-frame?) (name string?) (cmpfn (or/c
+             #f (-> any/c any/c boolean?)))) any/c]
+           [(df-set-sorted! (df data-frame?) (name string?) (cmpfn (or/c
+             #f (-> any/c any/c boolean?)))) any/c])]{
 
 Mark the series @racket[name] inside the data frame @racket[df] as
 sorted according to @racket[cmpfn].  This does not actually sort the
@@ -154,8 +162,10 @@ NA values.
 
 }
 
-@defproc[(df-set-contract (df data-frame?) (name string?) (contractfn
-(or/c #f (-> any/c boolean?)))) any/c]{
+@defproc*[([(df-set-contract (df data-frame?) (name string?) (contractfn
+              (or/c #f (-> any/c boolean?)))) any/c]
+           [(df-set-contract! (df data-frame?) (name string?) (contractfn
+              (or/c #f (-> any/c boolean?)))) any/c])]{
 
 Set the contract for values in the data frame @racket[df] series
 @racket[name] to @racket[contractfn].  An exception is thrown if not
@@ -265,7 +275,8 @@ Return #t if the data frame @racket[df] contains at least one of the
 
 }
 
-@defproc[(df-put-property (df data-frame?) (key symbol?) (value any/c)) any/c]{
+@defproc*[([(df-put-property (df data-frame?) (key symbol?) (value any/c)) any/c]
+           [(df-put-property! (df data-frame?) (key symbol?) (value any/c)) any/c])]{
 
 Set the property @racket[key] to @racket[value] inside the data frame
 @racket[df].  If there is already a value for the property
@@ -274,9 +285,9 @@ Set the property @racket[key] to @racket[value] inside the data frame
 }
 
 @defproc[(df-get-property (df data-frame?)
-                          (key symbol?)
-                          (default any/c (lambda () #f)))
-                          any/c]{
+                           (key symbol?)
+                           (default any/c (lambda () #f)))
+                           any/c]{
 
 Return the value for the property @racket[key] in the data frame
 @racket[df].  If there is no value for @racket[key], the
@@ -285,9 +296,12 @@ just returns @racket[#f])
 
 }
 
-@defproc[(df-del-property (df data-frame?)
-                          (key symbol?))
-                          any/c]{
+@defproc*[([(df-del-property (df data-frame?)
+                             (key symbol?))
+                             any/c]
+           [(df-del-property! (df data-frame?)
+                              (key symbol?))
+                              any/c])]{
 
 Delete the value for the property @racket[key] from the data frame
 @racket[df].  Does nothing if there is no value for the property
