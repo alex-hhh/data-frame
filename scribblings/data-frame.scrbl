@@ -700,12 +700,15 @@ the #:iterations parameter to the `annealing` function.
                        (#:bucket-width bucket-width real? 1)
                        (#:trim-outliers trim-outliers (or/c #f (between/c 0 1)) #f)
                        (#:include-zeroes? include-zeroes? boolean? #t)
-                       (#:as-percentage? as-percentage? boolean? #f))
+                       (#:as-percentage? as-percentage? boolean? #f)
+                       (#:start start exact-nonnegative-integer?)
+                       (#:stop stop exact-nonnegative-integer?))
                        (or/c #f histogram/c)]{
 
-Create a histogram for @racket[series] from the data frame
-@racket[df].  The returned is a vector of values, each value is a
-vector of two values, the sample and the rank of that sample.
+Create a histogram for @racket[series] from the data frame @racket[df] between
+rows @racket[start] and @racket[stop] (which default to all the rows).  The
+returned is a vector of values, each value is a vector of two values, the
+sample and the rank of that sample.
 
 @racket[weight-series] specifies the series to be used for weighting
 the samples. By default, it it uses the @racket['weight] property

@@ -52,9 +52,12 @@
 
 ;;............................................................. provides ....
 
+(provide (struct-out slr))
+
 (provide/contract
- (slr? (-> any/c boolean?))
- (make-slr (->* ((listof number?) (listof number?))
-                ((listof number?))
+ ;; (slr? (-> any/c boolean?))
+ (make-slr (->* ((or/c (listof number?) (vectorof number?))
+                 (or/c (listof number?) (vectorof number?)))
+                ((or/c (listof number?) (vectorof number?)))
                 (or/c slr? #f)))
  (slr-renderer (-> slr? (treeof renderer2d?))))
