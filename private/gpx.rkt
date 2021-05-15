@@ -32,11 +32,19 @@
 ;;......................................................... df-write/gpx ....
 
 (define gpx-header-tag
-  "<gpx xmlns=\"http://www.topografix.com/GPX/1/1\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" creator=\"ActivityLog2\" version=\"1.1\" xsi:schemaLocation=\"http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd\">\n")
+  #<<EOS
+<gpx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.cluetrust.com/XML/GPXDATA/1/0 http://www.cluetrust.com/Schemas/gpxdata10.xsd"
+     xmlns:gpxdata="http://www.cluetrust.com/XML/GPXDATA/1/0"
+     version="1.1"
+     creator="Racket data-frame package (https://github.com/alex-hhh/data-frame)"
+     xmlns="http://www.topografix.com/GPX/1/1">
+
+EOS
+  )
 
 (define gpx-indent (make-parameter 0))
 (define gpx-indent-string (make-parameter ""))
-(define gpx-export-series (make-parameter '("timestamp" "lat" "lon" "alt")))
 
 ;; Convert the UTC timestamp (in seconds) into a string in the format
 ;; "YYYY-MM-DDTHH-MM-SSZ"
@@ -51,14 +59,53 @@
      "T"
      (fmt (date-hour d) 2) ":" (fmt (date-minute d) 2) ":" (fmt (date-second d) 2) "Z")))
 
-
 ;; Write to (current-output-port) the XML content for a GPX track point.
-(define (gpx-emit-trkpt lat lon alt timestamp)
-  (let ((indent (gpx-indent-string)))
-    (write-string (format "~a<trkpt lat=\"~a\" lon=\"~a\">~%" indent lat lon))
-    (write-string (format "~a  <ele>~a</ele>\n" indent alt))
-    (write-string (format "~a  <time>~a</time>\n" indent (seconds->gpx-timestamp timestamp)))
-    (write-string (format "~a</trkpt>\n" indent))))
+(define (gpx-emit-trkpt series data)
+  (let ([lat #f]
+        [lon #f]
+        [alt #f]
+        [timestamp #f]
+        [hr #f]
+        [cad #f]
+        [spd #f]
+        [pwr #f]
+        [dst #f])
+
+    ;; Decode the series
+    (for ([series (in-list series)]
+          [datum (in-list data)])
+      (case series
+        (("lat") (set! lat datum))
+        (("lon") (set! lon datum))
+        (("timestamp") (set! timestamp datum))
+        (("alt" "calt") (set! alt datum))
+        (("hr") (set! hr datum))
+        (("cad") (set! cad datum))
+        (("spd") (set! spd datum))
+        (("pwr") (set! pwr datum))
+        (("dst") (set! dst datum))))
+
+    (when (and lat lon alt)             ; these must exist
+                 
+      (let ((indent (gpx-indent-string)))
+        (write-string (format "~a<trkpt lat=\"~a\" lon=\"~a\">~%" indent lat lon))
+        (write-string (format "~a  <ele>~a</ele>\n" indent alt))
+        (when timestamp
+          (write-string (format "~a  <time>~a</time>\n" indent (seconds->gpx-timestamp timestamp))))
+        (when (or hr cad spd pwr dst)
+          (write-string (format"~a    <extensions>~%" indent))
+          (when hr
+            (write-string (format "~a      <gpxdata:hr>~a</gpxdata:hr>~%" indent hr)))
+          (when cad
+            (write-string (format "~a      <gpxdata:cadence>~a</gpxdata:cadence>~%" indent cad)))
+          (when spd
+            (write-string (format "~a      <gpxdata:speed>~a</gpxdata:speed>~%" indent spd)))
+          (when pwr
+            (write-string (format "~a      <gpxdata:power>~a</gpxdata:power>~%" indent pwr)))
+          (when dst
+            (write-string (format "~a      <gpxdata:distance>~a</gpxdata:distance>~%" indent dst)))
+          (write-string (format"~a    </extensions>~%" indent)))
+        (write-string (format "~a</trkpt>\n" indent))))))
 
 ;; Write to (current-output-port) the XML content for a GPX way point
 (define (gpx-emit-wpt lat lon alt timestamp name)
@@ -70,17 +117,17 @@
     (write-string (format "~a</wpt>\n" indent))))
 
 ;; Write to (current-output-port) the lap markers in DF as way points.
-(define (gpx-emit-laps df)
+(define (gpx-emit-laps df export-series)
   (define laps (or (df-get-property df 'laps) '()))
   (define limit (df-row-count df))
-  (unless (null? laps)
+  (unless (or (null? laps) (not (df-contains? df "timestamp")))
     (parameterize* ((gpx-indent (+ 2 (gpx-indent)))
                     (gpx-indent-string (make-string (gpx-indent) #\ )))
       ;; NOTE: don't emit the first lap, as that coincides with the start of
       ;; the track
       (for ([(lap lap-num) (in-indexed laps)] #:when (> lap-num 0))
         (match-define (vector timestamp lat lon ele)
-          (df-lookup df "timestamp" (gpx-export-series) lap))
+          (df-lookup df "timestamp" export-series lap))
         (gpx-emit-wpt lat lon ele timestamp (format "Lap ~a" lap-num))))))
 
 ;; Write to (current-output-port) the GPS points in DF as a track.  The track
@@ -88,7 +135,7 @@
 ;;
 ;; NAME specifies the name of the track.  If it is #f, the 'name property of
 ;; DF is consulted and if that one is missing, a default name is used.
-(define (gpx-emit-trk df (name #f))
+(define (gpx-emit-trk df export-series start stop name)
   (parameterize* ((gpx-indent (+ 2 (gpx-indent)))
                   (gpx-indent-string (make-string (gpx-indent) #\ )))
     (write-string (format "~a<trk>\n" (gpx-indent-string)))
@@ -98,47 +145,63 @@
     (parameterize* ((gpx-indent (+ 2 (gpx-indent)))
                     (gpx-indent-string (make-string (gpx-indent) #\ )))
       (df-for-each
-       df (gpx-export-series)
+       #:start start #:stop stop
+       df export-series
        (lambda (data)
-         (when data
-           (match-define (list timestamp lat lon calt) data)
-           (when (and lat lon calt timestamp)
-             (gpx-emit-trkpt lat lon calt timestamp))))))
+         (gpx-emit-trkpt export-series data))))
     (write-string (format "~a  </trkseg>\n" (gpx-indent-string)))
     (write-string (format "~a</trk>\n" (gpx-indent-string)))))
 
 ;; Write the contents of DF in GPX format to the output port OUT.  See
 ;; `df-write/gpx` for some notes on what is actually written.
-(define (write-gpx df out #:name (name #f))
-  (unless (df-contains? df "timestamp" "lat" "lon")
-    (df-raise "cannot export GPX track -- timestamp or lat or lon series missing"))
+(define (write-gpx df out
+                   #:name name
+                   #:extra-series extra-series
+                   #:start start
+                   #:stop stop)
+  (unless (df-contains? df "lat" "lon")
+    (df-raise "cannot export GPX track -- lat or lon series missing"))
   (unless (df-contains/any? df "calt" "alt")
     (df-raise "cannot export GPX track -- altitude series missing"))
   (parameterize ((current-output-port out)
                  (gpx-indent 0)
-                 (gpx-indent-string "")
-                 (gpx-export-series
-                  (cond ((df-contains? df "calt")
-                         ;; Prefer corrected altitude
-                         (list "timestamp" "lat" "lon" "calt"))
-                        ((df-contains? df "alt")
-                         ;; Fall back on recorded altitude, if that is
-                         ;; available
-                         (list "timestamp" "lat" "lon" "alt"))
-                        (#t
-                         (df-raise "cannot export GPX track -- alt or calt series missing")))))
-    (write-string "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
-    (write-string gpx-header-tag)
-    (gpx-emit-laps df)
-    (gpx-emit-trk df name)
-    (write-string "</gpx>\n")))
+                 (gpx-indent-string ""))
+    (let* ([basic-export-series
+            (cond ((df-contains? df "calt")
+                   ;; Prefer corrected altitude
+                   (list "lat" "lon" "calt"))
+                  ((df-contains? df "alt")
+                   ;; Fall back on recorded altitude, if that is
+                   ;; available
+                   (list "lat" "lon" "alt"))
+                  (#t
+                   (df-raise "cannot export GPX track -- alt or calt series missing")))]
+           [export-series
+            (append basic-export-series
+                    (for/list ([s (in-list extra-series)]
+                               #:when (df-contains? df s))
+                      s))])
+      (write-string "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
+      (write-string gpx-header-tag)
+      (gpx-emit-laps df basic-export-series)
+      (gpx-emit-trk df export-series start stop name)
+      (write-string "</gpx>\n")
+      (void))))
 
 ;; Export the GPS track from the data frame DF to OUT -- which is either an
-;; output port or a string, in which case it denotes a file name.  The data
-;; frame is expected to contain the "timestamp", "lat", "lon" series, and
-;; optionally "alt" or "calt" (corrected altitude) series.
+;; output port or a string, in which case it denotes a file name.
 ;;
-;; The entire GPS track is exported as a single track segment.
+;; The data frame is expected to contain the "timestamp", "lat", "lon" series,
+;; and optionally "alt" or "calt" (corrected altitude) series.  In addition to
+;; these series, optional heart rate, cadence, speed, power and distance data
+;; can also be written out by specifying a list of series names in
+;; EXTRA-SERIES, series which don't exist will be silently discarded.  Series
+;; which exist, but we don't know how to write them out are also silently
+;; discarded (e.g. no "gpxdata:" tag)
+;;
+;; The entire GPS track is exported as a single track segment, unless START
+;; and STOP positions are specified, in which case only data between these
+;; positions is exported (this can be used to export a subset of the data)
 ;;
 ;; The 'laps property, if present, is assumed to contain a list of timestamps.
 ;; The positions corresponding to these timestamps are exported as way points.
@@ -151,13 +214,17 @@
 ;; into different segments.  This would work nicely when exporting skiing
 ;; runs.
 ;;
-(define (df-write/gpx df outp #:name (name #f))
+(define (df-write/gpx df outp
+                      #:name (name #f)
+                      #:extra-series (extra-series '("timestamp" "hr" "cad" "spd" "pwr" "dst"))
+                      #:start (start 0)
+                      #:stop (stop (df-row-count df)))
   (if (path-string? outp)
       (call-with-output-file outp
         #:mode 'text #:exists 'truncate/replace
         (lambda (o)
-          (write-gpx df o #:name name)))
-      (write-gpx df outp #:name name)))
+          (write-gpx df o #:name name #:extra-series extra-series #:start start #:stop stop)))
+      (write-gpx df outp #:name name #:extra-series extra-series #:start start #:stop stop)))
 
 
 
@@ -435,6 +502,9 @@
 
 (provide/contract
  (df-write/gpx (->* (data-frame? (or/c path-string? output-port?))
-                    (#:name (or/c #f string?))
+                    (#:name (or/c #f string?)
+                     #:extra-series (listof string?)
+                     #:start exact-nonnegative-integer?
+                     #:stop exact-nonnegative-integer?)
                     any/c))
  (df-read/gpx (-> (or/c path-string? input-port?) data-frame?)))

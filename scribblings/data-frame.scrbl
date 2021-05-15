@@ -871,16 +871,28 @@ All the track segments in the GPX file will be concatenated.}
 
 @defproc[(df-write/gpx (df data-frame?)
                        (output (or/c path-string? output-port?))
-                       (#:name name (or/c #f string?)))
+                       (#:name name (or/c #f string?) #f)
+                       (#:extra-series extra-series (listof string?) '("hr" "cad" "pwr" "spd" "dst"))
+                       (#:start start exact-nonnegative-integer? 0)
+                       (#:stop stop exact-nonnegative-integer? (df-row-count df)))
                        any/c]{
 
 Export the GPS track from the data frame @racket[df] to
 @racket[output], which is either an output port or a string, in which
-case it denotes a file name.  The data frame is expected to contain
-the "timestamp", "lat", "lon" series, and optionally "alt" or "calt"
-(corrected altitude) series.
+case it denotes a file name.
 
-The entire GPS track is exported as a single track segment.
+The data frame is expected to contain the "timestamp", "lat", "lon" series,
+and optionally "alt" or "calt" (corrected altitude) series.  In addition to
+these series, optional heart rate, cadence, speed, power and distance data can
+also be written out by specifying a list of series names in
+@racket[extra-series], series which don't exist will be silently discarded.
+Series which exist, but we don't know how to write them out are also silently
+discarded (e.g. no "gpxdata:" tag)
+
+The entire GPS track is exported as a single track segment, unless
+@racket[start] and @racket[stop] positions are specified, in which case only
+data between these positions is exported (this can be used to export a subset
+of the data)
 
 The @racket[laps] property, if present, is assumed to contain a list
 of timestamps and the positions corresponding to these timestamps are
