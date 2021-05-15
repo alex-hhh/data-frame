@@ -1,10 +1,15 @@
-I welcome pull requests, but before you submit one, please **create an issue
-first** with a good description of the **bug** you found, the **new feature**
-you would like or the **documentation improvement** that you think is
-necessary.  I may be able to provide a fix, or provide guidance on how to
-solve the problem and there is a smaller chance that I will ask for
-significant changes to your pull request, or reject it.
+I welcome pull requests, but before you submit one, please **create an issue**
+with a good description of the **bug** you found, the **new feature** you
+would like or the **documentation improvement** that you think is necessary.
+I may be able to provide a fix, or provide guidance on how to solve the
+problem. There is also a smaller chance that I will ask for significant
+changes to your pull request, or even reject it.
 
-**Don't bother** correcting **spelling mistakes**, extra **white space** or
-**code indentation**.  I will not accept pull requests that contain trivial
-changes, consider creating an issue instead.
+You don't have to contribute to this project.  However, if you choose to
+contribute, please note that trivial changes will be rejected.  Here are some
+examples of changes that will be rejected:
+
+* fixing spelling or grammar mistakes in code, comments or other files
+* removing extra white space
+* fixing code indentation
+* changing names of functions and variables
