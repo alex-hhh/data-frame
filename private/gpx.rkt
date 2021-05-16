@@ -85,11 +85,12 @@ EOS
         (("pwr") (set! pwr datum))
         (("dst") (set! dst datum))))
 
-    (when (and lat lon alt)             ; these must exist
-                 
+    (when (and lat lon)                 ; these must exist
+
       (let ((indent (gpx-indent-string)))
         (write-string (format "~a<trkpt lat=\"~a\" lon=\"~a\">~%" indent lat lon))
-        (write-string (format "~a  <ele>~a</ele>\n" indent alt))
+        (when alt
+          (write-string (format "~a  <ele>~a</ele>\n" indent alt)))
         (when timestamp
           (write-string (format "~a  <time>~a</time>\n" indent (seconds->gpx-timestamp timestamp))))
         (when (or hr cad spd pwr dst)
@@ -112,23 +113,26 @@ EOS
   (let ((indent (gpx-indent-string)))
     (write-string (format "~a<wpt lat=\"~a\" lon=\"~a\">~%" indent lat lon))
     (write-string (format "~a  <name>~a</name>\n" indent name))
-    (write-string (format "~a  <ele>~a</ele>\n" indent alt))
+    (when alt
+      (write-string (format "~a  <ele>~a</ele>\n" indent alt)))
     (write-string (format "~a  <time>~a</time>\n" indent (seconds->gpx-timestamp timestamp)))
     (write-string (format "~a</wpt>\n" indent))))
 
-;; Write to (current-output-port) the lap markers in DF as way points.
+;; Write to (current-output-port) the lap markers in DF as way points.  NOTE
+;; that the EXPORT-SERIES must contain (but we don't verify) the "timestamp",
+;; "lat", "lon" and an altitude series ("alt" or "calt").  This is not a nice
+;; design...
 (define (gpx-emit-laps df export-series)
   (define laps (or (df-get-property df 'laps) '()))
   (define limit (df-row-count df))
   (unless (or (null? laps) (not (df-contains? df "timestamp")))
     (parameterize* ((gpx-indent (+ 2 (gpx-indent)))
                     (gpx-indent-string (make-string (gpx-indent) #\ )))
-      ;; NOTE: don't emit the first lap, as that coincides with the start of
-      ;; the track
-      (for ([(lap lap-num) (in-indexed laps)] #:when (> lap-num 0))
+      (for ([(lap lap-num) (in-indexed laps)])
         (match-define (vector timestamp lat lon ele)
           (df-lookup df "timestamp" export-series lap))
-        (gpx-emit-wpt lat lon ele timestamp (format "Lap ~a" lap-num))))))
+        (when (and timestamp lat lon)   ; ele can be #f
+          (gpx-emit-wpt lat lon ele timestamp (format "Lap ~a" lap-num)))))))
 
 ;; Write to (current-output-port) the GPS points in DF as a track.  The track
 ;; is named by the NAME parameter.
@@ -183,7 +187,7 @@ EOS
                       s))])
       (write-string "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n")
       (write-string gpx-header-tag)
-      (gpx-emit-laps df basic-export-series)
+      (gpx-emit-laps df (cons "timestamp" basic-export-series))
       (gpx-emit-trk df export-series start stop name)
       (write-string "</gpx>\n")
       (void))))
