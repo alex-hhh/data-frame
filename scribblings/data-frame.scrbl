@@ -1,10 +1,17 @@
 #lang scribble/manual
-@require[@for-label[racket/base
+@require[scribble/example
+         @for-label[racket/base
                     racket/contract
                     math/statistics
                     plot
                     (only-in plot/utils renderer2d?)
-                    db]]
+                    db
+                    data-frame]]
+
+@(define ev
+   (let ([eval (make-base-eval)])
+     (eval '(require data-frame))
+     eval))
 
 @title{data-frame}
 @author{Alex Harsanyi}
@@ -161,6 +168,39 @@ Set the contract for values in the data frame @racket[df] series
 all values in the series match @racket[contractfn] or are NA.  The
 @racket[contractfn] need not return @racket[#t] for the NA value.
 
+}
+
+@defform[(for/data-frame (series-name ...) body-or-break ... body)]{
+Constructs a new data-frame with the given @racket[series-name]s,
+row-by-row.
+
+Iterates like @racket[for], but each @racket[body] must evaluate to
+a set of values that corresponds to each @racket[series-name], in order.
+Each iteration must have the same contract.
+
+@examples[#:eval ev
+  (define df
+    (for/data-frame (ints strs)
+                    ([int (in-range 5)]
+                     [str (in-list (list "a" "b" "c" "d" "e"))])
+      (values int str)))
+  (df-select df "ints")
+  (df-select df "strs")
+]
+}
+
+@defform[(for*/data-frame (series-name ...) body-or-break ... body)]{
+Like @racket[for/data-frame], but iterates like @racket[for*].
+
+@examples[#:eval ev
+  (define df
+    (for*/data-frame (ints strs)
+                     ([int (in-range 2)]
+                      [str (in-list (list "a" "b"))])
+      (values int str)))
+  (df-select df "ints")
+  (df-select df "strs")
+]
 }
 
 @section{Loading data into data-frames and saving it out again}
