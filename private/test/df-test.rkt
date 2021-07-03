@@ -47,7 +47,8 @@
          "../rdp-simplify.rkt"
          "../least-squares-fit.rkt"
          "../scatter.rkt"
-         "../slr.rkt")
+         "../slr.rkt"
+         "../for-df.rkt")
 
 (define-runtime-path csv-test-file "./csv-tests-t1.csv")
 (define-runtime-path sample-csv "./test-data/sample.csv")
@@ -1060,6 +1061,52 @@
      ;; standard deviation (i.e. all values are the same)
      (check-equal? (make-slr '(1 1 1) '(1 2 3)) #f))))
 
+(define for-tests
+  (test-suite
+   "for/data-frame"
+   (test-case "for/data-frame: nothing to iterate on"
+     (define for-nothing
+       (for/data-frame (col1 col2 col3)
+                       ([v (in-list '())])
+         (values v v v)))
+     (define for*-nothing
+       (for*/data-frame (col1 col2 col3)
+                        ([v (in-list '())]
+                         [v2 (in-list '())]
+                         [v3 (in-list '())])
+         (values v v2 v3)))
+
+     (check-equal? (list "col1" "col2" "col3")
+                   (sort (df-series-names for-nothing) string-ci<?))
+     (check-equal? (list "col1" "col2" "col3")
+                   (sort (df-series-names for*-nothing) string-ci<?))
+     (check-equal? (df-row-count for-nothing) 0)
+     (check-equal? (df-row-count for*-nothing) 0))
+
+   (test-case "for/data-frame: something to iterate on"
+     (define for-something
+       (for/data-frame (ints strs)
+                       ([v (in-range 5)]
+                        [v2 (in-list (list "a" "b" "c"))])
+         (values v v2)))
+     (define for*-something
+       (for*/data-frame (ints strs)
+                        ([v (in-range 5)]
+                         [v2 (in-list (list "a" "b" "c"))])
+         (values v v2)))
+
+     (check-equal? (df-row-count for-something) 3)
+     (check-equal? (df-select for-something "ints")
+                   (vector 0 1 2))
+     (check-equal? (df-select for-something "strs")
+                   (vector "a" "b" "c"))
+
+     (check-equal? (df-row-count for*-something) 15)
+     (check-equal? (df-select for*-something "ints")
+                   (vector 0 0 0 1 1 1 2 2 2 3 3 3 4 4 4))
+     (check-equal? (df-select for*-something "strs")
+                   (vector "a" "b" "c" "a" "b" "c" "a" "b" "c"
+                           "a" "b" "c" "a" "b" "c")))))
 
 
 ;;................................................................. rest ....
@@ -1081,4 +1128,5 @@
              rdp-simplify-tests
              scatter-tests
              least-squares-fit-tests
-             slr-tests))
+             slr-tests
+             for-tests))
