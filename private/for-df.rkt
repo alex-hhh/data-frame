@@ -56,6 +56,7 @@
      #:with orig-stx stx
      #:with for_/fold/derived for_/fold/derived-stx
      #:with ((pre-body ...) (post-body ...)) (split-for-body stx #'(body ... tail-expr))
+     #:with (col-binder ...) (generate-temporaries #'(column ...))
      ; each series name is specified in (column:id ...), convert them to strings
      #'(let ([columns (list (symbol->string 'column) ...)])
          (call-with-values
@@ -65,7 +66,7 @@
               ; make an accumulator for the index into each vector,
               ; and an accumulator for each new series to create, with default length 16
               ([i 0]
-               [column (make-vector 16)] ...)
+               [col-binder (make-vector 16)] ...)
               clauses pre-body ...
 
               ; increment the index accumulator, and for each column accumulator, determine
@@ -73,7 +74,7 @@
               ; length. then, mutably update the vector, and continue looping
               (apply values
                      (add1 i)
-                     (for/list ([col-vec (in-list (list column ...))]
+                     (for/list ([col-vec (in-list (list col-binder ...))]
                                 [value (in-list (call-with-values (λ () post-body ...) list))])
                        (define new-vec (if (eq? i (vector-length col-vec))
                                            (grow-vector col-vec)
