@@ -267,7 +267,16 @@
 
      (check equal? (series-index-range c3 1) (cons 0 2))
      (check equal? (series-index-range c3 2) (cons 3 6))
-     (check equal? (series-index-range c3 3) (cons 7 9)))))
+     (check equal? (series-index-range c3 3) (cons 7 9))
+
+     (define c4 (series-shallow-copy c2))
+     (check-false (equal? c2 c4))
+     (check-true (equal? (series-name c2) (series-name c4)))
+     (check-true (for/and ([a (in-series c2)] [b (in-series c4)])
+                   (equal? a b)))
+     (check-false (series-is-sorted? c4))
+
+     (check-true (series-is-sorted? (series-shallow-copy c3))))))
 
 
 ;;............................................................... spline ....
@@ -578,6 +587,7 @@
       (lambda ()
         ;; wrong sort order
         (df-set-sorted! df "col6" >)))
+     ;; attempting sorting with wrong sort order didn't destroy the previous sorting
      (check-true (df-is-sorted? df "col6"))
 
      (define c7 (make-series "col7"
@@ -585,6 +595,7 @@
                              #:contract integer? #:cmpfn <=))
      (df-add-series! df c7)
 
+     (check-true (df-is-sorted? df "col7"))
      (check equal? (df-index-of df "col7" 1) 0)
      (check equal? (df-index-range df "col7" 1) (cons 0 1))
      (check equal? (df-index-of df "col7" 2) 2)

@@ -115,13 +115,6 @@ the data series, except NA values must satisfy this contract.
 
 }
 
-@defproc[(df-shallow-copy [df data-frame?]) data-frame]{
-  Creates a copy of @racket[df]. The returned copy will reference the
-  same data series objects as the original (and the properties), but any
-  add/delete operations, for both series and properties, will only affect
-  the copy.
-}
-
 @defproc[(df-add-series! (df data-frame?) (series series?)) any/c]{
 Add a new series to the data frame.  If the data frame is empty, the
 series can have any number of elements, otherwise it must have the
@@ -155,6 +148,15 @@ names.
 
 }
 
+@defproc[(df-duplicate-series (df data-frame?) (name string?)) series?]{
+Duplicates the series with name @racket[name] in the data-frame
+@racket[df]. The internal contents of the series are the same, but any
+add/delete operations and blessings will only affect the copy.
+
+If the series with name @racket[name] is delayed
+(see @racket[df-add-lazy!]), this will force it.
+}
+
 @defproc[(df-set-sorted! (df data-frame?) (name string?) (cmpfn (or/c
            #f (-> any/c any/c boolean?)))) any/c]{
 
@@ -175,6 +177,13 @@ Set the contract for values in the data frame @racket[df] series
 all values in the series match @racket[contractfn] or are NA.  The
 @racket[contractfn] need not return @racket[#t] for the NA value.
 
+}
+
+@defproc[(df-shallow-copy [df data-frame?]) data-frame]{
+  Creates a copy of @racket[df]. The returned copy will reference the
+  same data series objects as the original (and the properties), but any
+  add/delete operations, for both series and properties, will only affect
+  the copy.
 }
 
 @defform[(for/data-frame (series-name ...) body-or-break ... body)]{

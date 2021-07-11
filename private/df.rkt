@@ -68,6 +68,13 @@
    (make-hash)
    (hash-copy properties)))
 
+;; Creates a copy of the series SERIES in the data frame DF. The returned copy
+;; will reference the same internal elements as the original, but any blessing
+;; operations or additions/deletions will only affect the copy.
+(define (df-duplicate-series df series)
+  (let ([s (df-get-series df series)])
+    (series-shallow-copy s)))
+
 ;; Return the series names in the data frame DF, as a list of strings.  The
 ;; names are returned in an unspecified order.
 (define (df-series-names df)
@@ -587,6 +594,7 @@
  (df-set-contract! (-> data-frame? string? (or/c #f (-> any/c boolean?)) any/c))
  (df-count-na (-> data-frame? string? exact-nonnegative-integer?))
  (df-shallow-copy (-> data-frame? data-frame?))
+ (df-duplicate-series (-> data-frame? string? series?))
  (df-is-na? (-> data-frame? string? any/c boolean?))
  (df-has-na? (-> data-frame? string? boolean?))
  (df-has-non-na? (-> data-frame? string? boolean?))
