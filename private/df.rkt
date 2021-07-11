@@ -248,6 +248,12 @@
         val)
       (for/vector #:length (- stop start) ([item sequence]) (list->vector item))))
 
+;; Determines if the given SERIES in the data frame DF is sorted. Useful for
+;; knowing when df-index-of is possible.
+(define (df-is-sorted? df series)
+  (let ([s (df-get-series df series)])
+    (series-is-sorted? s)))
+
 ;; Return the index (position) of VALUE in the data frame SERIES.  If SERIES
 ;; is not sorted, this will raise an error.  VALUE might not be present in the
 ;; series, in that case, the returned index is the position of the first
@@ -552,6 +558,7 @@
                      (#:start index/c #:stop index/c)
                      #:rest (listof string?)
                      sequence?))
+ (df-is-sorted? (-> data-frame? string? boolean?))
  (df-index-of (-> data-frame? string? any/c index/c))
  (df-index-of* (->* (data-frame? string?) #:rest list? (listof index/c)))
  (df-index-range (-> data-frame? string? any/c (cons/c index/c index/c)))

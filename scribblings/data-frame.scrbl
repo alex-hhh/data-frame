@@ -428,6 +428,16 @@ value, which is a list with all the values from the selected
 
 }
 
+@defproc[(df-is-sorted? (df data-frame?) (series string?)) boolean?]{
+Determines if the given series @racket[series] in the data-frame @racket[df]
+is sorted. Useful for programatically determining whether further manipulation
+is needed before running @racket[df-index-of], or for knowing when linear
+search is necessary.
+
+This does not check whether the series is actually sorted, rather whether it
+has been blessed with @racket[df-set-sorted!].
+}
+
 @deftogether[(                        
 @defproc[(df-index-of (df data-frame?) (series string?) (value any/c)) index/c]
 @defproc[(df-index-of* (df data-frame?) (series string?) (value any/c) ...) (listof index/c)])]{

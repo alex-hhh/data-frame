@@ -165,6 +165,7 @@
      (check-true (series-empty? c1))
      (series-reserve-space c1 100)
      (check = (series-free-space c1) 100)
+     (check-false (series-is-sorted? c1))
 
      ;; NOTE: c1 is empty
      (check-false (series-has-non-na? c1))
@@ -188,6 +189,7 @@
 
      (check-false (series-has-na? c2))
      (check-true (series-has-non-na? c2))
+     (check-true (series-is-sorted? c2))
 
      (check equal? (for/list ((x (in-series c1))) x) '())
      (check equal? (for/list ((x (in-series c2))) x) '(1 2 3 5))
@@ -326,6 +328,7 @@
       (lambda ()
         (df-add-series! df c1)))
      (check equal? (df-count-na df "col1") 0)
+     (check-true (df-is-sorted? df "col1"))
      (define c2 (make-series "col2" #:data #(3 2 1 0) #:contract integer? #:cmpfn >))
      (check-not-exn
       (lambda ()
@@ -565,14 +568,17 @@
 
      (define c6 (make-series "col6" #:data #(1 2 3 4) #:contract integer?))
      (df-add-series! df c6)
+     (check-false (df-is-sorted? df "col6"))
      (check-not-exn
       (lambda ()
         (df-set-sorted! df "col6" <)))
+     (check-true (df-is-sorted? df "col6"))
      (check-exn
       exn:fail:data-frame?
       (lambda ()
         ;; wrong sort order
         (df-set-sorted! df "col6" >)))
+     (check-true (df-is-sorted? df "col6"))
 
      (define c7 (make-series "col7"
                              #:data #(1 1 2 2)

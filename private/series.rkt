@@ -204,6 +204,12 @@
     (check-valid-sort c cmpfn))
   (set-series-cmpfn! c cmpfn))
 
+;; Checks if the given series C is sorted (so it has a comparison function,
+;; as if it had one and was not sorted, this would be a construction time
+;; error).
+(define (series-is-sorted? c)
+  (and (series-cmpfn c) #t))
+
 ;; Mark the data series C as having the CONTRACTFN contract.  All elements
 ;; will be validated with the contract first and an error will be raised if
 ;; they don't satisfy the contract.
@@ -311,6 +317,7 @@
  (series-size (-> series? exact-nonnegative-integer?))
  (series-empty? (-> series? boolean?))
  (series-is-na? (-> series? any/c boolean?))
+ (series-is-sorted? (-> series? boolean?))
  (series-free-space (-> series? exact-nonnegative-integer?))
  (series-reserve-space (-> series? exact-nonnegative-integer? any/c))
  (series-ref (-> series? exact-nonnegative-integer? any/c))
