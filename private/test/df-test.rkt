@@ -79,6 +79,20 @@
      (define rdata (for/vector ([x (in-range 20 1 -1)]) x))
      (check equal? (bsearch rdata 5 #:cmp >) 15))
 
+   (test-case "bsearch: leftmost and rightmost index"
+     (define ddata (build-vector 50 (λ (x) (floor (/ x 3)))))
+     ; front of the vector
+     (check equal? (bsearch ddata 0 #:cmp <=) 0)
+     (check equal? (bsearch ddata 0 #:cmp <= #:rightmost? #t) 2)
+
+     ; middle of the vector
+     (check equal? (bsearch ddata 13 #:cmp <=) 39)
+     (check equal? (bsearch ddata 13 #:cmp <= #:rightmost? #t) 41)
+
+     ; end of the vector
+     (check equal? (bsearch ddata 16 #:cmp <=) 48)
+     (check equal? (bsearch ddata 16 #:cmp <= #:rightmost? #t) 49))
+
    (test-case "bsearch: other"
      (define data (for/vector ([x (in-range 1 21)]) x)) ; 20 element vector
 
@@ -122,9 +136,9 @@
       exn:fail:contract?
       (lambda ()
         ;; start is after end
-        (bsearch data 5 #:start 5 #:stop 1)))
+        (bsearch data 5 #:start 5 #:stop 1))))))
 
-     )))
+     
 
 
 ;;................................................................ series ....
@@ -179,6 +193,8 @@
      (check equal? (for/list ((x (in-series c2))) x) '(1 2 3 5))
 
      (check equal? (series-index-of c2 3) 2)
+     (check equal? (series-index-range c2 1) (cons 0 0))
+     (check equal? (series-index-range c2 3) (cons 2 2))
 
      (check-not-exn
       (lambda ()
@@ -245,7 +261,11 @@
      (check equal? (series-ref c2 3) #f)
      (check equal? (series-na-count c2) 1) ; C2 has one NA value
 
-     )))
+     (define c3 (make-series "c3" #:data #(1 1 1 2 2 2 2 3 3 3) #:cmpfn <=))
+
+     (check equal? (series-index-range c3 1) (cons 0 2))
+     (check equal? (series-index-range c3 2) (cons 3 6))
+     (check equal? (series-index-range c3 3) (cons 7 9)))))
 
 
 ;;............................................................... spline ....
@@ -263,7 +283,7 @@
      (check-pred real? (fn 0.5))
      (check-pred real? (fn 1.0))
      (check-pred real? (fn -2))         ; outside the points range
-     (check-pred real? (fn 10))         ; outside the points range
+     (check-pred real? (fn 10)))))         ; outside the points range
 
      ;;
      ;; This will plot the spline and the know points, useful for
@@ -274,7 +294,7 @@
      ;;                    (points data-points))
      ;;              #:x-min -5 #:x-max 5) show #t)
 
-     )))
+     
 
 
 ;;........................................................... data-frame ....
@@ -490,6 +510,7 @@
      (check = (df-index-of df "col1" -1) 0)
      (check = (df-index-of df "col1" 100) 4)
      (check equal? (df-index-of* df "col1" 2 -1 100) '(1 0 4))
+     (check equal? (df-index-range df "col1" 2) (cons 1 1))
 
      ;; col1: 1 2 3 4; col2: 3 2 1 0
      (check equal? (df-lookup df "col1" "col2" 3) 1)
@@ -553,12 +574,22 @@
         ;; wrong sort order
         (df-set-sorted! df "col6" >)))
 
+     (define c7 (make-series "col7"
+                             #:data #(1 1 2 2)
+                             #:contract integer? #:cmpfn <=))
+     (df-add-series! df c7)
+
+     (check equal? (df-index-of df "col7" 1) 0)
+     (check equal? (df-index-range df "col7" 1) (cons 0 1))
+     (check equal? (df-index-of df "col7" 2) 2)
+     (check equal? (df-index-range df "col7" 2) (cons 2 3))
+
      (check-not-exn
       (lambda ()
         ;; note: this probably needs more tests...
-        (df-shallow-copy df)))
+        (df-shallow-copy df))))))
 
-     )))
+     
 
 (define (with-fresh-database thunk)
   (let ((db (sqlite3-connect #:database 'memory #:mode 'create)))
@@ -676,9 +707,9 @@
         (df-write/csv df csv-test-file)))
      (check-not-exn
       (lambda ()
-        (call-with-input-string text (lambda (in) (df-read/csv in)))))
+        (call-with-input-string text (lambda (in) (df-read/csv in))))))
 
-     )
+     
 
    (test-case "df-read/csv: duplicate header names"
      (define df (df-read/csv sample4-csv))
@@ -686,9 +717,9 @@
      (check equal? (df-select df "one") #(1 1))
      (check equal? (df-select df "one (1)") #(2 2))
      (check equal? (df-select df "one (2)") #(3 3))
-     (check equal? (df-select df "one (3)") #(4 4)))
+     (check equal? (df-select df "one (3)") #(4 4)))))
 
-   ))
+   
 
 
 (define gpx-tests
@@ -728,9 +759,9 @@
                    (lambda (out) (df-write/gpx df-1136 out))))))
      (check-not-exn
       (lambda ()
-        (call-with-input-string str (lambda (in) (df-read/gpx in)))))
+        (call-with-input-string str (lambda (in) (df-read/gpx in))))))))
 
-     )))
+     
 
 (define tcx-tests
   (test-suite
@@ -753,8 +784,8 @@
      (check-true (df-contains? df "alt" "cad" "dst" "lat" "lon" "pwr" "spd" "timestamp"))
      (check-true (> (df-row-count df) 0))
      (check-true (list? (df-get-property df 'laps)))
-     (check-true (> (length (df-get-property df 'laps)))))
-  ))
+     (check-true (> (length (df-get-property df 'laps)))))))
+  
 
 (define stats+mmax-tests
   (test-suite
@@ -796,11 +827,11 @@
      (check-not-exn
       (lambda()
         (define mmax (df-mean-max df "spd"))
-        (check > (length mmax) 0)       ; need a better test
-        ))
+        (check > (length mmax) 0))))))       ; need a better test
+        
 
 
-     )))
+     
 
 (define histogram-tests
   (test-suite
@@ -830,9 +861,9 @@
      (let ((h (df-histogram df-1136 "spd-tag")))
        (check = (vector-length h) 3)      ; the three tags
        (let ((n (for/sum ([item (in-vector h)]) (vector-ref item 1))))
-         (check = n (df-row-count df-1136))))
+         (check = n (df-row-count df-1136)))))))
 
-     )))
+     
 
 
 (define rdp-simplify-tests
@@ -880,8 +911,8 @@
                                   #:keep-positions
                                   (list test-point
                                         (sub1 nitems) ; last one
-                                        (+ nitems 5) ; out of range
-                                        )))
+                                        (+ nitems 5)))) ; out of range
+                                        
      ;; The test-point and the one that follows were kept in the output set...
      (check-pred exact-nonnegative-integer?
                  (vector-memq (vector-ref data test-point) data-5))
@@ -891,9 +922,9 @@
      (define data-4 (rdp-simplify data #:epsilon 0.04 #:destroy-original? #t))
      (check < (vector-length data-4) (vector-length data-3))
      ;; data now contains #f values, as it was destroyed
-     (check > (for/sum ([d (in-vector data)] #:when (eq? #f d)) 1) 0)
+     (check > (for/sum ([d (in-vector data)] #:when (eq? #f d)) 1) 0))))
 
-     )))
+     
 
 (define scatter-tests
   (test-suite
@@ -929,9 +960,9 @@
        ;; NOTE: the x y and timestamp values were chosen carefully so we can
        ;; check if they shifted correctly with simple arithmetic!
        (check = (- ts x) timestamp)
-       (check = (- y x) (- shift-amount)))
+       (check = (- y x) (- shift-amount))))))
 
-     )))
+     
 
 ;;.................................................... least-squares-fit ....
 
@@ -1037,7 +1068,7 @@
                       df "base2" "log"
                       #:mode 'logarithmic
                       #:residual? #t))
-     (check-modified-residuals fit-log df "base2" "log")
+     (check-modified-residuals fit-log df "base2" "log"))))
 
      ;; NOTE: power fit does not seem to generate minimum residuals, not a
      ;; mathematician, so I don't know why, see explanation for
@@ -1051,7 +1082,7 @@
      ;;                  #:annealing-iterations 1000))
      ;; (check-modified-residuals fit-pow df "base2" "pow")
 
-     )))
+     
 
 (define slr-tests
   (test-suite

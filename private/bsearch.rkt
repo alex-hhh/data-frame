@@ -27,10 +27,13 @@
 ;; search on a structure slot).  START and END define the sub-range of the
 ;; vector to search.
 ;;
+;; If RIGHTMOST? is set, bsearch will return the rightmost index in VEC of the
+;; value VAL, rather than the leftmost index.
+;;
 ;; bsearch will return an index identifying the position where VAL could be
 ;; inserted to keep the range sorted.  That is:
 ;;
-;; * if VAl exists in the vector, its location is returned
+;; * if VAL exists in the vector, its location is returned
 ;;
 ;; * if VAL is smaller than the first value in the range, START is returned
 ;;
@@ -45,7 +48,8 @@
                  #:cmp (cmp-fn <)
                  #:key (key-fn values)
                  #:start (start 0)
-                 #:stop (end (vector-length vec)))
+                 #:stop (end (vector-length vec))
+                 #:rightmost? (rightmost? #f))
 
   (define (do-search start end)
     (if (= start end)
@@ -58,6 +62,25 @@
                   (do-search (+ mid 1) end)
                   mid)))))
 
+  (define (do-reverse-search start end)
+    ; retain equality or else we end up with issues
+    (define (not-cmpfn a b)
+      ; if cmp-fn and equal? are true, this predicate respects equal?, and its negation
+      ; should too. (like <= and >=)
+      (define respect-equal? (and (equal? a b) (cmp-fn a b)))
+      (or (and respect-equal? (equal? a b))
+          (not (cmp-fn a b))))
+
+    (if (= start end)
+        (sub1 start)
+        (let* ((mid (exact-truncate (/ (+ start end) 2)))
+               (mid-val (key-fn (vector-ref vec mid))))
+          (if (not-cmpfn val mid-val)
+              (do-reverse-search (add1 mid) end)
+              (if (not-cmpfn mid-val val)
+                  (do-reverse-search start mid)
+                  mid)))))
+
   (let ((vlen (vector-length vec)))
     (cond ((or (< start 0) (> start vlen))
            (raise-range-error 'bsearch "vector" "starting " start vec 0 vlen))
@@ -67,7 +90,7 @@
            (raise-range-error
             'bsearch "vector" "ending " end vec start vlen 0))))
 
-  (do-search start end))
+  ((if rightmost? do-reverse-search do-search) start end))
 
 
 ;;............................................................. provides ....
@@ -77,5 +100,6 @@
                (#:cmp (-> any/c any/c boolean?)
                 #:key (-> any/c any/c)
                 #:start integer?
-                #:stop integer?)
+                #:stop integer?
+                #:rightmost? boolean?)
                integer?)))

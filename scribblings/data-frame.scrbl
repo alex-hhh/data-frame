@@ -115,6 +115,13 @@ the data series, except NA values must satisfy this contract.
 
 }
 
+@defproc[(df-shallow-copy [df data-frame?]) data-frame]{
+  Creates a copy of @racket[df]. The returned copy will reference the
+  same data series objects as the original (and the properties), but any
+  add/delete operations, for both series and properties, will only affect
+  the copy.
+}
+
 @defproc[(df-add-series! (df data-frame?) (series series?)) any/c]{
 Add a new series to the data frame.  If the data frame is empty, the
 series can have any number of elements, otherwise it must have the
@@ -441,6 +448,20 @@ or equal than the first value of the series and a value of
 @racket[(df-row-count df)] is returned if the value is greater than
 all the values in @racket[series].
 
+}
+
+@defproc[(df-index-range (df data-frame?) (series string?) (value any/c))
+         (cons/c index/c index/c)]{
+Finds the leftmost and rightmost position of @racket[value], and return them
+respectively, in the data frame @racket[df]. This is useful for when a given
+series has multiple elements, and you want to find all of their occurrences.
+As the given series is sorted, this is a range, and not a collection of
+indices.
+
+The series must be sorted, see @racket[df-set-sorted!], otherwise the calls
+will raise an error.
+
+All other edge cases are the same as @racket[df-index-of].
 }
 
 @deftogether[(
