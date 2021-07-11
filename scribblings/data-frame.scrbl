@@ -186,7 +186,7 @@ all values in the series match @racket[contractfn] or are NA.  The
   the copy.
 }
 
-@defform[(for/data-frame (series-name ...) body-or-break ... body)]{
+@defform[(for/data-frame (series-name ...) (for-clause ...) body-or-break ... body)]{
 Constructs a new data-frame with the given @racket[series-name]s,
 row-by-row.
 
@@ -205,7 +205,7 @@ Each iteration must have the same contract.
 ]
 }
 
-@defform[(for*/data-frame (series-name ...) body-or-break ... body)]{
+@defform[(for*/data-frame (series-name ...) (for-clause ...) body-or-break ... body)]{
 Like @racket[for/data-frame], but iterates like @racket[for*].
 
 @examples[#:eval ev
