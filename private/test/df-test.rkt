@@ -350,14 +350,14 @@
        (check equal? low 7)
        (check equal? upr 10))
 
-     (define c4 (series-shallow-copy c2))
+     (define c4 (copy-series c2))
      (check-false (equal? c2 c4))
      (check-true (equal? (series-name c2) (series-name c4)))
      (check-true (for/and ([a (in-series c2)] [b (in-series c4)])
                    (equal? a b)))
      (check-false (series-is-sorted? c4))
 
-     (check-true (series-is-sorted? (series-shallow-copy c3))))))
+     (check-true (series-is-sorted? (copy-series c3))))))
 
 
 ;;............................................................... spline ....

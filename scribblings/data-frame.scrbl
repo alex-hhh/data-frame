@@ -150,8 +150,7 @@ names.
 
 @defproc[(df-duplicate-series (df data-frame?) (name string?)) series?]{
 Duplicates the series with name @racket[name] in the data-frame
-@racket[df]. The internal contents of the series are the same, but any
-add/delete operations and blessings will only affect the copy.
+@racket[df]. The resulting copy will not impact the original.
 
 If the series with name @racket[name] is delayed
 (see @racket[df-add-lazy!]), this will force it.

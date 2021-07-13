@@ -73,7 +73,7 @@
 ;; operations or additions/deletions will only affect the copy.
 (define (df-duplicate-series df series)
   (let ([s (df-get-series df series)])
-    (series-shallow-copy s)))
+    (copy-series s)))
 
 ;; Return the series names in the data frame DF, as a list of strings.  The
 ;; names are returned in an unspecified order.

@@ -156,12 +156,9 @@
     (check-valid-sort df cmpfn))
   df)
 
-;; Creates a copy of the series C. The returned copy will reference the same
-;; elements as the original, but any add/delete operations and blessings
-;; will only affect the copy.
-(define (series-shallow-copy c)
-  (match-define (series name data beg end cmpfn na contractfn) c)
-  (series name (vector-copy data) beg end cmpfn na contractfn))
+;; Creates a copy of the series C.
+(define (copy-series c)
+  (struct-copy series c [data (vector-copy (series-data c))]))
 
 ;; Return the number of elements in the series C.
 (define (series-size c)
@@ -317,7 +314,7 @@
                     #:na any/c
                     #:contract (-> any/c boolean?))
                    series?))
- (series-shallow-copy (-> series? series?))
+ (copy-series (-> series? series?))
  (series? (-> any/c boolean?))
  (series-na (-> series? any/c))
  (series-name (-> series? string?))
