@@ -61,7 +61,7 @@
     (define vprev (if (> index beg) (vector-ref data (sub1 index)) #f))
     (cond ((equal? v na)
            (df-raise "check-valid-sort: ~a contains NA / values @~a" name index))
-          ((and (> index beg) (not (cmpfn vprev v)))
+          ((and (> index beg) (not (or (equal? vprev v) (cmpfn vprev v))))
            (df-raise "check-valid-sort: ~a not really sorted @~a (~a vs ~a)"
                      name index vprev v)))))
 
@@ -282,8 +282,7 @@
 (define (series-index-range c value)
   (match-define (series name data beg end cmpfn _ _) c)
   (if cmpfn
-      (cons (bsearch data value #:cmp cmpfn #:start beg #:stop end)
-            (bsearch data value #:cmp cmpfn #:start beg #:stop end #:rightmost? #t))
+      (equal-range data value #:cmp cmpfn #:start beg #:stop end)
       (df-raise (format "series-index-range: ~a is not sorted" name))))
 
 ;; Return the number of "not available" values in the data series.
@@ -336,8 +335,8 @@
                             exact-integer?)
                  sequence?))
  (series-index-of (-> series? any/c (or/c #f exact-nonnegative-integer?)))
- (series-index-range (-> series? any/c (or/c #f (cons/c exact-nonnegative-integer?
-                                                        exact-nonnegative-integer?))))
+ (series-index-range (-> series? any/c (values (or/c #f exact-nonnegative-integer?)
+                                               (or/c #f exact-nonnegative-integer?))))
  (series-bless-sorted (-> series? (or/c #f (-> any/c any/c boolean?)) any/c))
  (series-bless-contract (-> series? (or/c #f (-> any/c boolean?)) any/c))
  (series-na-count (-> series? exact-nonnegative-integer?))

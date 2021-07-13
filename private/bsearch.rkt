@@ -85,7 +85,6 @@
 
   (let loop ([start start]
              [end end])
->>>>>>> upstream/ah/lower-bound
     (if (= start end)
         start
         (let* ((mid (exact-truncate (/ (+ start end) 2)))
@@ -94,30 +93,11 @@
               (loop (add1 mid) end)
               (loop start mid))))))
 
-define (upper-bound vec val
+(define (upper-bound vec val
                      #:cmp (cmp-fn <)
                      #:key (key-fn values)
                      #:start (start 0)
                      #:stop (end (vector-length vec)))
-
-  (define (do-reverse-search start end)
-    ; retain equality or else we end up with issues
-    (define (not-cmpfn a b)
-      ; if cmp-fn and equal? are true, this predicate respects equal?, and its negation
-      ; should too. (like <= and >=)
-      (define respect-equal? (and (equal? a b) (cmp-fn a b)))
-      (or (and respect-equal? (equal? a b))
-          (not (cmp-fn a b))))
-
-    (if (= start end)
-        (sub1 start)
-        (let* ((mid (exact-truncate (/ (+ start end) 2)))
-               (mid-val (key-fn (vector-ref vec mid))))
-          (if (not-cmpfn val mid-val)
-              (do-reverse-search (add1 mid) end)
-              (if (not-cmpfn mid-val val)
-                  (do-reverse-search start mid)
-                  mid)))))
 
   (let ((vlen (vector-length vec)))
     (cond ((or (< start 0) (> start vlen))
@@ -136,7 +116,7 @@ define (upper-bound vec val
                (mid-val (key-fn (vector-ref vec mid))))
           (if (cmp-fn val mid-val)
               (loop start mid)
-              (loop (add1 mid) end)))))
+              (loop (add1 mid) end))))))
 
 ;; Return two values representing the start and one-plus end ranges where VAL
 ;; is present in the sorted vector VEC.  This is equivalent to calling
@@ -156,7 +136,7 @@ define (upper-bound vec val
           ((> start end)
            (raise-range-error
             'equal-range "vector" "ending " end vec start vlen 0))))
-  
+
   (define lb (lower-bound vec val #:cmp cmp-fn #:key key-fn #:start start #:stop end))
   (cond ((>= lb end) (values lb lb))
         ((equal? (vector-ref vec lb) val)
@@ -188,5 +168,6 @@ define (upper-bound vec val
                     #:key (-> any/c any/c)
                     #:start integer?
                     #:stop integer?)
-                   (values integer? integer?))))
+                   (values integer? integer?)))
 
+ )

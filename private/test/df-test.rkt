@@ -66,7 +66,7 @@
 
 ;;.............................................................. bsearch ....
 
-define lower+upper-bound-tests
+(define lower+upper-bound-tests
   (test-suite
 
    "lower-bound/upper-bound"
@@ -111,7 +111,7 @@ define lower+upper-bound-tests
        (check equal? high 19))
 
      )
-     
+
    (test-case "reverse order"
      (define data (for/vector ([x (in-range 20 1 -1)]) x))
 
@@ -209,10 +209,7 @@ define lower+upper-bound-tests
       exn:fail:contract?
       (lambda ()
         ;; start is after end
-        (upper-bound data 5 #:start 5 #:stop 1)))
-
-
-     
+        (upper-bound data 5 #:start 5 #:stop 1))))))
 
 
 ;;................................................................ series ....
@@ -269,8 +266,12 @@ define lower+upper-bound-tests
      (check equal? (for/list ((x (in-series c2))) x) '(1 2 3 5))
 
      (check equal? (series-index-of c2 3) 2)
-     (check equal? (series-index-range c2 1) (cons 0 0))
-     (check equal? (series-index-range c2 3) (cons 2 2))
+     (let-values ([(low upr) (series-index-range c2 1)])
+       (check equal? low 0)
+       (check equal? upr 1))
+     (let-values ([(low upr) (series-index-range c2 3)])
+       (check equal? low 2)
+       (check equal? upr 3))
 
      (check-not-exn
       (lambda ()
@@ -337,11 +338,17 @@ define lower+upper-bound-tests
      (check equal? (series-ref c2 3) #f)
      (check equal? (series-na-count c2) 1) ; C2 has one NA value
 
-     (define c3 (make-series "c3" #:data #(1 1 1 2 2 2 2 3 3 3) #:cmpfn <=))
+     (define c3 (make-series "c3" #:data #(1 1 1 2 2 2 2 3 3 3) #:cmpfn <))
 
-     (check equal? (series-index-range c3 1) (cons 0 2))
-     (check equal? (series-index-range c3 2) (cons 3 6))
-     (check equal? (series-index-range c3 3) (cons 7 9))
+     (let-values ([(low upr) (series-index-range c3 1)])
+       (check equal? low 0)
+       (check equal? upr 3))
+     (let-values ([(low upr) (series-index-range c3 2)])
+       (check equal? low 3)
+       (check equal? upr 7))
+     (let-values ([(low upr) (series-index-range c3 3)])
+       (check equal? low 7)
+       (check equal? upr 10))
 
      (define c4 (series-shallow-copy c2))
      (check-false (equal? c2 c4))
@@ -596,7 +603,9 @@ define lower+upper-bound-tests
      (check = (df-index-of df "col1" -1) 0)
      (check = (df-index-of df "col1" 100) 4)
      (check equal? (df-index-of* df "col1" 2 -1 100) '(1 0 4))
-     (check equal? (df-index-range df "col1" 2) (cons 1 1))
+     (let-values ([(low upr) (df-index-range df "col1" 2)])
+       (check equal? low 1)
+       (check equal? upr 2))
 
      ;; col1: 1 2 3 4; col2: 3 2 1 0
      (check equal? (df-lookup df "col1" "col2" 3) 1)
@@ -666,14 +675,18 @@ define lower+upper-bound-tests
 
      (define c7 (make-series "col7"
                              #:data #(1 1 2 2)
-                             #:contract integer? #:cmpfn <=))
+                             #:contract integer? #:cmpfn <))
      (df-add-series! df c7)
 
      (check-true (df-is-sorted? df "col7"))
      (check equal? (df-index-of df "col7" 1) 0)
-     (check equal? (df-index-range df "col7" 1) (cons 0 1))
+     (let-values ([(low upr) (df-index-range df "col7" 1)])
+       (check equal? low 0)
+       (check equal? upr 2))
      (check equal? (df-index-of df "col7" 2) 2)
-     (check equal? (df-index-range df "col7" 2) (cons 2 3))
+     (let-values ([(low upr) (df-index-range df "col7" 2)])
+       (check equal? low 2)
+       (check equal? upr 4))
 
      (check-not-exn
       (lambda ()

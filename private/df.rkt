@@ -568,7 +568,7 @@
  (df-is-sorted? (-> data-frame? string? boolean?))
  (df-index-of (-> data-frame? string? any/c index/c))
  (df-index-of* (->* (data-frame? string?) #:rest list? (listof index/c)))
- (df-index-range (-> data-frame? string? any/c (cons/c index/c index/c)))
+ (df-index-range (-> data-frame? string? any/c (values index/c index/c)))
  (df-ref (-> data-frame? index/c string? any/c))
  (df-set! (-> data-frame? index/c any/c string? any/c))
  (df-ref* (->* (data-frame? index/c) #:rest (listof string?) vector?))
