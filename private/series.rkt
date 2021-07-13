@@ -276,11 +276,11 @@
 ;; Find the first and last indices (multiple) of VALUE in the data series C.
 ;; The series has to be sorted, otherwise an error is raised. All other results
 ;; are the same as series-index-of.
-(define (series-index-range c value)
+(define (series-equal-range c value)
   (match-define (series name data beg end cmpfn _ _) c)
   (if cmpfn
       (equal-range data value #:cmp cmpfn #:start beg #:stop end)
-      (df-raise (format "series-index-range: ~a is not sorted" name))))
+      (df-raise (format "series-equal-range: ~a is not sorted" name))))
 
 ;; Return the number of "not available" values in the data series.
 (define (series-na-count c)
@@ -332,7 +332,7 @@
                             exact-integer?)
                  sequence?))
  (series-index-of (-> series? any/c (or/c #f exact-nonnegative-integer?)))
- (series-index-range (-> series? any/c (values (or/c #f exact-nonnegative-integer?)
+ (series-equal-range (-> series? any/c (values (or/c #f exact-nonnegative-integer?)
                                                (or/c #f exact-nonnegative-integer?))))
  (series-bless-sorted (-> series? (or/c #f (-> any/c any/c boolean?)) any/c))
  (series-bless-contract (-> series? (or/c #f (-> any/c boolean?)) any/c))

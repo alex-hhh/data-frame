@@ -266,10 +266,10 @@
      (check equal? (for/list ((x (in-series c2))) x) '(1 2 3 5))
 
      (check equal? (series-index-of c2 3) 2)
-     (let-values ([(low upr) (series-index-range c2 1)])
+     (let-values ([(low upr) (series-equal-range c2 1)])
        (check equal? low 0)
        (check equal? upr 1))
-     (let-values ([(low upr) (series-index-range c2 3)])
+     (let-values ([(low upr) (series-equal-range c2 3)])
        (check equal? low 2)
        (check equal? upr 3))
 
@@ -340,13 +340,13 @@
 
      (define c3 (make-series "c3" #:data #(1 1 1 2 2 2 2 3 3 3) #:cmpfn <))
 
-     (let-values ([(low upr) (series-index-range c3 1)])
+     (let-values ([(low upr) (series-equal-range c3 1)])
        (check equal? low 0)
        (check equal? upr 3))
-     (let-values ([(low upr) (series-index-range c3 2)])
+     (let-values ([(low upr) (series-equal-range c3 2)])
        (check equal? low 3)
        (check equal? upr 7))
-     (let-values ([(low upr) (series-index-range c3 3)])
+     (let-values ([(low upr) (series-equal-range c3 3)])
        (check equal? low 7)
        (check equal? upr 10))
 
@@ -603,7 +603,7 @@
      (check = (df-index-of df "col1" -1) 0)
      (check = (df-index-of df "col1" 100) 4)
      (check equal? (df-index-of* df "col1" 2 -1 100) '(1 0 4))
-     (let-values ([(low upr) (df-index-range df "col1" 2)])
+     (let-values ([(low upr) (df-equal-range df "col1" 2)])
        (check equal? low 1)
        (check equal? upr 2))
 
@@ -680,11 +680,11 @@
 
      (check-true (df-is-sorted? df "col7"))
      (check equal? (df-index-of df "col7" 1) 0)
-     (let-values ([(low upr) (df-index-range df "col7" 1)])
+     (let-values ([(low upr) (df-equal-range df "col7" 1)])
        (check equal? low 0)
        (check equal? upr 2))
      (check equal? (df-index-of df "col7" 2) 2)
-     (let-values ([(low upr) (df-index-range df "col7" 2)])
+     (let-values ([(low upr) (df-equal-range df "col7" 2)])
        (check equal? low 2)
        (check equal? upr 4))
 

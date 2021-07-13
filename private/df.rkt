@@ -284,9 +284,9 @@
 ;; If SERIES is not sorted, this will raise an error. This will return a pair of the
 ;; leftmost and rightmost index in the given series, in case the value is duplicated.
 ;; All other behavior is similar to or the same as df-index-of.
-(define (df-index-range df series value)
+(define (df-equal-range df series value)
   (let ([s (df-get-series df series)])
-    (series-index-range s value)))
+    (series-equal-range s value)))
 
 ;; Return the value at INDEX for SERIES.
 (define (df-ref df index series)
@@ -568,7 +568,7 @@
  (df-is-sorted? (-> data-frame? string? boolean?))
  (df-index-of (-> data-frame? string? any/c index/c))
  (df-index-of* (->* (data-frame? string?) #:rest list? (listof index/c)))
- (df-index-range (-> data-frame? string? any/c (values index/c index/c)))
+ (df-equal-range (-> data-frame? string? any/c (values index/c index/c)))
  (df-ref (-> data-frame? index/c string? any/c))
  (df-set! (-> data-frame? index/c any/c string? any/c))
  (df-ref* (->* (data-frame? index/c) #:rest (listof string?) vector?))

@@ -438,12 +438,8 @@ value, which is a list with all the values from the selected
 
 @defproc[(df-is-sorted? (df data-frame?) (series string?)) boolean?]{
 Determines if the given series @racket[series] in the data-frame @racket[df]
-is sorted. Useful for programatically determining whether further manipulation
-is needed before running @racket[df-index-of], or for knowing when linear
-search is necessary.
-
-This does not check whether the series is actually sorted, rather whether it
-has been blessed with @racket[df-set-sorted!].
+is sorted (i.e. @racket[df-set-sorted!] has been called and succeeded for this
+series).
 }
 
 @deftogether[(                        
@@ -468,18 +464,22 @@ all the values in @racket[series].
 
 }
 
-@defproc[(df-index-range (df data-frame?) (series string?) (value any/c))
-         (cons/c index/c index/c)]{
-Finds the leftmost and rightmost position of @racket[value], and return them
-respectively, in the data frame @racket[df]. This is useful for when a given
-series has multiple elements, and you want to find all of their occurrences.
-As the given series is sorted, this is a range, and not a collection of
-indices.
+@defproc[(df-equal-range (df data-frame?) (series string?) (value any/c))
+         (values index/c index/c)]{
+Finds the lower bound of appearance (inclusive) and upper bound of appearance
+(exclusive) of @racket[value], and return them respectively, in the data frame
+@racket[df]. This is useful for when a given series has multiple elements, and
+you want to find all of their occurrences. As the given series must be sorted,
+this is a range, and not a collection of indices.
 
-The series must be sorted, see @racket[df-set-sorted!], otherwise the calls
-will raise an error.
+The series must be sorted (see @racket[df-set-sorted!]), or else this will
+error.
 
-All other edge cases are the same as @racket[df-index-of].
+The given @racket[value] need not be present in the @racket[series]. If this is
+the case, the lower bound is the position of the first element which comes before
+@racket[value], according to the sort function, and the upper bound is the first
+element which comes after @racket[value]. This is the range in which the given
+value could be inserted and keep the series sorted.
 }
 
 @deftogether[(
