@@ -270,7 +270,7 @@
 (define (series-index-of c value)
   (match-define (series name data beg end cmpfn _ _) c)
   (if cmpfn
-      (bsearch data value #:cmp cmpfn #:start beg #:stop end)
+      (lower-bound data value #:cmp cmpfn #:start beg #:stop end)
       (df-raise (format "series-index-of: ~a is not sorted" name))
       #;(for/first ([(x index) (in-indexed (in-vector data beg end))]
                     #:when (equal? x value))

@@ -66,77 +66,151 @@
 
 ;;.............................................................. bsearch ....
 
-(define bsearch-tests
+define lower+upper-bound-tests
   (test-suite
 
-   "bsearch"
+   "lower-bound/upper-bound"
 
-   (test-case "bsearch: empty vector"
+   (test-case "empty vector"
      (define empty (make-vector 0))
-     (check equal? (bsearch empty 5) 0))
+     (check equal? (lower-bound empty 5) 0)
+     (check equal? (upper-bound empty 5) 0))
+
+   (test-case "distinct values"
+     (define data (for/vector ([x (in-range 1 20)]) x))
+
+     ;; An existing value
+     (check equal? (lower-bound data 5) 4)
+     (check equal? (upper-bound data 5) 5)
+
+     (let-values ([(low high) (equal-range data 5)])
+       (check equal? low 4)
+       (check equal? high 5))
+
+     ;; A non-existent value, somewhere inside the vector range
+     (check equal? (lower-bound data 4.5) 4)
+     (check equal? (upper-bound data 4.5) 4)
+
+     (let-values ([(low high) (equal-range data 4.5)])
+       (check equal? low 4)
+       (check equal? high 4))
+
+     ;; Non Existent value before the first value in the vector
+     (check equal? (lower-bound data -1) 0)
+     (check equal? (upper-bound data -1) 0)
+
+     (let-values ([(low high) (equal-range data -1)])
+       (check equal? low 0)
+       (check equal? high 0))
+
+     ;; Non Existent value after the last value in the vector
+     (check equal? (lower-bound data 100) 19)
+     (check equal? (upper-bound data 100) 19)
+     (let-values ([(low high) (equal-range data 100)])
+       (check equal? low 19)
+       (check equal? high 19))
+
+     )
      
-   (test-case "bsearch: reverse order"
-     (define rdata (for/vector ([x (in-range 20 1 -1)]) x))
-     (check equal? (bsearch rdata 5 #:cmp >) 15))
+   (test-case "reverse order"
+     (define data (for/vector ([x (in-range 20 1 -1)]) x))
 
-   (test-case "bsearch: leftmost and rightmost index"
-     (define ddata (build-vector 50 (λ (x) (floor (/ x 3)))))
-     ; front of the vector
-     (check equal? (bsearch ddata 0 #:cmp <=) 0)
-     (check equal? (bsearch ddata 0 #:cmp <= #:rightmost? #t) 2)
+     ;; An existing value
+     (check equal? (lower-bound data 5 #:cmp >) 15)
+     (check equal? (upper-bound data 5 #:cmp >) 16)
+     (let-values ([(low high) (equal-range data 5 #:cmp >)])
+       (check equal? low 15)
+       (check equal? high 16))
 
-     ; middle of the vector
-     (check equal? (bsearch ddata 13 #:cmp <=) 39)
-     (check equal? (bsearch ddata 13 #:cmp <= #:rightmost? #t) 41)
+     ;; A non-existent value, somewhere inside the vector range
+     (check equal? (lower-bound data 4.5 #:cmp >) 16)
+     (check equal? (upper-bound data 4.5 #:cmp >) 16)
+     (let-values ([(low high) (equal-range data 4.5 #:cmp >)])
+       (check equal? low 16)
+       (check equal? high 16))
 
-     ; end of the vector
-     (check equal? (bsearch ddata 16 #:cmp <=) 48)
-     (check equal? (bsearch ddata 16 #:cmp <= #:rightmost? #t) 49))
+     ;; Non Existent value before the first value in the vector
+     (check equal? (lower-bound data -1 #:cmp >) 19)
+     (check equal? (upper-bound data -1 #:cmp >) 19)
+     (let-values ([(low high) (equal-range data -1 #:cmp >)])
+       (check equal? low 19)
+       (check equal? high 19))
 
-   (test-case "bsearch: other"
+     ;; Non Existent value after the last value in the vector
+     (check equal? (lower-bound data 100 #:cmp >) 0)
+     (check equal? (upper-bound data 100 #:cmp >) 0)
+     (let-values ([(low high) (equal-range data 100 #:cmp >)])
+       (check equal? low 0)
+       (check equal? high 0)))
+
+   (test-case "duplicate values"
+     (define data (vector 1 2 3 3 3 4 5 6))
+
+     ;; An existing value
+     (check equal? (lower-bound data 3) 2)
+     (check equal? (upper-bound data 3) 5)
+     (let-values ([(low high) (equal-range data 3)])
+       (check equal? low 2)
+       (check equal? high 5)))
+
+   (test-case "other"
      (define data (for/vector ([x (in-range 1 21)]) x)) ; 20 element vector
 
-     ;; Simple search
-     (check equal? (bsearch data 5) 4)
-     ;; Search for out of range values
-     (check equal? (bsearch data -1) 0)
-     (check equal? (bsearch data 25) 20)
-     ;; Search for values that are at the end of the range
-     (check equal? (bsearch data 1) 0)
-     (check equal? (bsearch data 20) 19)
-     ;; Search for inexact values -- the best place will be found
-     (check equal? (bsearch data 0.9) 0)
-     (check equal? (bsearch data 1.1) 1)
-     (check equal? (bsearch data 18.9) 18)
-
      ;; Sub-range searching, basics
-     (check equal? (bsearch data 5 #:start 0 #:stop 3) 3)
-     (check equal? (bsearch data 5 #:start 3 #:stop 7) 4)
-     (check equal? (bsearch data 5 #:stop 3) 3)
-     (check equal? (bsearch data 5 #:start 7) 7)
+     (check equal? (lower-bound data 5 #:start 0 #:stop 3) 3)
+     (check equal? (lower-bound data 5 #:start 3 #:stop 7) 4)
+     (check equal? (lower-bound data 5 #:stop 3) 3)
+     (check equal? (lower-bound data 5 #:start 7) 7)
+
+     (check equal? (upper-bound data 5 #:start 0 #:stop 3) 3)
+     (check equal? (upper-bound data 5 #:start 3 #:stop 7) 5)
+     (check equal? (upper-bound data 5 #:stop 3) 3)
+     (check equal? (upper-bound data 5 #:start 7) 7)
 
      ;; Searches in ranges of 1 and 0 length ranges
-     (check equal? (bsearch data 5 #:start 4 #:stop 5) 4)
-     (check equal? (bsearch data 5 #:start 3 #:stop 3) 3)
+     (check equal? (lower-bound data 5 #:start 4 #:stop 5) 4)
+     (check equal? (lower-bound data 5 #:start 3 #:stop 3) 3)
+
+     (check equal? (upper-bound data 5 #:start 4 #:stop 5) 5)
+     (check equal? (upper-bound data 5 #:start 3 #:stop 3) 3)
 
      ;; ;; Off the grid searches
      (check-exn
       exn:fail:contract?
       (lambda ()
         ;; start is out of range, should raise exception
-        (bsearch data 5 #:start -100 #:stop 5)))
+        (lower-bound data 5 #:start -100 #:stop 5)))
+
+     (check-exn
+      exn:fail:contract?
+      (lambda ()
+        ;; start is out of range, should raise exception
+        (upper-bound data 5 #:start -100 #:stop 5)))
 
      (check-exn
       exn:fail:contract?
       (lambda ()
         ;; end is out of range, should raise exception
-        (bsearch data 5 #:start 0 #:stop 200)))
+        (lower-bound data 5 #:start 0 #:stop 200)))
+
+     (check-exn
+      exn:fail:contract?
+      (lambda ()
+        ;; end is out of range, should raise exception
+        (upper-bound data 5 #:start 0 #:stop 200)))
+     
+     (check-exn
+      exn:fail:contract?
+      (lambda ()
+        ;; start is after end
+        (lower-bound data 5 #:start 5 #:stop 1)))
 
      (check-exn
       exn:fail:contract?
       (lambda ()
         ;; start is after end
-        (bsearch data 5 #:start 5 #:stop 1))))))
+        (upper-bound data 5 #:start 5 #:stop 1)))
+
 
      
 
@@ -1163,7 +1237,7 @@
   (require al2-test-runner)
   (run-tests #:package "data-frame"
              #:results-file "test-results-data-frame.xml"
-             bsearch-tests
+             lower+upper-bound-tests
              series-tests
              spline-tests
              df-tests
