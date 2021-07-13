@@ -350,6 +350,16 @@
        (check equal? low 7)
        (check equal? upr 10))
 
+     (let-values ([(low upr) (series-equal-range c3 1.5)])
+       (check equal? low 3)
+       (check equal? upr 3))
+     (let-values ([(low upr) (series-equal-range c3 2.3)])
+       (check equal? low 7)
+       (check equal? upr 7))
+     (let-values ([(low upr) (series-equal-range c3 2.7)])
+       (check equal? low 7)
+       (check equal? upr 7))
+
      (define c4 (copy-series c2))
      (check-false (equal? c2 c4))
      (check-true (equal? (series-name c2) (series-name c4)))
