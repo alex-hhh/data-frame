@@ -66,65 +66,150 @@
 
 ;;.............................................................. bsearch ....
 
-(define bsearch-tests
+(define lower+upper-bound-tests
   (test-suite
 
-   "bsearch"
+   "lower-bound/upper-bound"
 
-   (test-case "bsearch: empty vector"
+   (test-case "empty vector"
      (define empty (make-vector 0))
-     (check equal? (bsearch empty 5) 0))
-     
-   (test-case "bsearch: reverse order"
-     (define rdata (for/vector ([x (in-range 20 1 -1)]) x))
-     (check equal? (bsearch rdata 5 #:cmp >) 15))
+     (check equal? (lower-bound empty 5) 0)
+     (check equal? (upper-bound empty 5) 0))
 
-   (test-case "bsearch: other"
+   (test-case "distinct values"
+     (define data (for/vector ([x (in-range 1 20)]) x))
+
+     ;; An existing value
+     (check equal? (lower-bound data 5) 4)
+     (check equal? (upper-bound data 5) 5)
+
+     (let-values ([(low high) (equal-range data 5)])
+       (check equal? low 4)
+       (check equal? high 5))
+
+     ;; A non-existent value, somewhere inside the vector range
+     (check equal? (lower-bound data 4.5) 4)
+     (check equal? (upper-bound data 4.5) 4)
+
+     (let-values ([(low high) (equal-range data 4.5)])
+       (check equal? low 4)
+       (check equal? high 4))
+
+     ;; Non Existent value before the first value in the vector
+     (check equal? (lower-bound data -1) 0)
+     (check equal? (upper-bound data -1) 0)
+
+     (let-values ([(low high) (equal-range data -1)])
+       (check equal? low 0)
+       (check equal? high 0))
+
+     ;; Non Existent value after the last value in the vector
+     (check equal? (lower-bound data 100) 19)
+     (check equal? (upper-bound data 100) 19)
+     (let-values ([(low high) (equal-range data 100)])
+       (check equal? low 19)
+       (check equal? high 19))
+
+     )
+
+   (test-case "reverse order"
+     (define data (for/vector ([x (in-range 20 1 -1)]) x))
+
+     ;; An existing value
+     (check equal? (lower-bound data 5 #:cmp >) 15)
+     (check equal? (upper-bound data 5 #:cmp >) 16)
+     (let-values ([(low high) (equal-range data 5 #:cmp >)])
+       (check equal? low 15)
+       (check equal? high 16))
+
+     ;; A non-existent value, somewhere inside the vector range
+     (check equal? (lower-bound data 4.5 #:cmp >) 16)
+     (check equal? (upper-bound data 4.5 #:cmp >) 16)
+     (let-values ([(low high) (equal-range data 4.5 #:cmp >)])
+       (check equal? low 16)
+       (check equal? high 16))
+
+     ;; Non Existent value before the first value in the vector
+     (check equal? (lower-bound data -1 #:cmp >) 19)
+     (check equal? (upper-bound data -1 #:cmp >) 19)
+     (let-values ([(low high) (equal-range data -1 #:cmp >)])
+       (check equal? low 19)
+       (check equal? high 19))
+
+     ;; Non Existent value after the last value in the vector
+     (check equal? (lower-bound data 100 #:cmp >) 0)
+     (check equal? (upper-bound data 100 #:cmp >) 0)
+     (let-values ([(low high) (equal-range data 100 #:cmp >)])
+       (check equal? low 0)
+       (check equal? high 0)))
+
+   (test-case "duplicate values"
+     (define data (vector 1 2 3 3 3 4 5 6))
+
+     ;; An existing value
+     (check equal? (lower-bound data 3) 2)
+     (check equal? (upper-bound data 3) 5)
+     (let-values ([(low high) (equal-range data 3)])
+       (check equal? low 2)
+       (check equal? high 5)))
+
+   (test-case "other"
      (define data (for/vector ([x (in-range 1 21)]) x)) ; 20 element vector
 
-     ;; Simple search
-     (check equal? (bsearch data 5) 4)
-     ;; Search for out of range values
-     (check equal? (bsearch data -1) 0)
-     (check equal? (bsearch data 25) 20)
-     ;; Search for values that are at the end of the range
-     (check equal? (bsearch data 1) 0)
-     (check equal? (bsearch data 20) 19)
-     ;; Search for inexact values -- the best place will be found
-     (check equal? (bsearch data 0.9) 0)
-     (check equal? (bsearch data 1.1) 1)
-     (check equal? (bsearch data 18.9) 18)
-
      ;; Sub-range searching, basics
-     (check equal? (bsearch data 5 #:start 0 #:stop 3) 3)
-     (check equal? (bsearch data 5 #:start 3 #:stop 7) 4)
-     (check equal? (bsearch data 5 #:stop 3) 3)
-     (check equal? (bsearch data 5 #:start 7) 7)
+     (check equal? (lower-bound data 5 #:start 0 #:stop 3) 3)
+     (check equal? (lower-bound data 5 #:start 3 #:stop 7) 4)
+     (check equal? (lower-bound data 5 #:stop 3) 3)
+     (check equal? (lower-bound data 5 #:start 7) 7)
+
+     (check equal? (upper-bound data 5 #:start 0 #:stop 3) 3)
+     (check equal? (upper-bound data 5 #:start 3 #:stop 7) 5)
+     (check equal? (upper-bound data 5 #:stop 3) 3)
+     (check equal? (upper-bound data 5 #:start 7) 7)
 
      ;; Searches in ranges of 1 and 0 length ranges
-     (check equal? (bsearch data 5 #:start 4 #:stop 5) 4)
-     (check equal? (bsearch data 5 #:start 3 #:stop 3) 3)
+     (check equal? (lower-bound data 5 #:start 4 #:stop 5) 4)
+     (check equal? (lower-bound data 5 #:start 3 #:stop 3) 3)
+
+     (check equal? (upper-bound data 5 #:start 4 #:stop 5) 5)
+     (check equal? (upper-bound data 5 #:start 3 #:stop 3) 3)
 
      ;; ;; Off the grid searches
      (check-exn
       exn:fail:contract?
       (lambda ()
         ;; start is out of range, should raise exception
-        (bsearch data 5 #:start -100 #:stop 5)))
+        (lower-bound data 5 #:start -100 #:stop 5)))
+
+     (check-exn
+      exn:fail:contract?
+      (lambda ()
+        ;; start is out of range, should raise exception
+        (upper-bound data 5 #:start -100 #:stop 5)))
 
      (check-exn
       exn:fail:contract?
       (lambda ()
         ;; end is out of range, should raise exception
-        (bsearch data 5 #:start 0 #:stop 200)))
+        (lower-bound data 5 #:start 0 #:stop 200)))
+
+     (check-exn
+      exn:fail:contract?
+      (lambda ()
+        ;; end is out of range, should raise exception
+        (upper-bound data 5 #:start 0 #:stop 200)))
+     
+     (check-exn
+      exn:fail:contract?
+      (lambda ()
+        ;; start is after end
+        (lower-bound data 5 #:start 5 #:stop 1)))
 
      (check-exn
       exn:fail:contract?
       (lambda ()
         ;; start is after end
-        (bsearch data 5 #:start 5 #:stop 1)))
-
-     )))
+        (upper-bound data 5 #:start 5 #:stop 1))))))
 
 
 ;;................................................................ series ....
@@ -151,6 +236,7 @@
      (check-true (series-empty? c1))
      (series-reserve-space c1 100)
      (check = (series-free-space c1) 100)
+     (check-false (series-is-sorted? c1))
 
      ;; NOTE: c1 is empty
      (check-false (series-has-non-na? c1))
@@ -174,11 +260,18 @@
 
      (check-false (series-has-na? c2))
      (check-true (series-has-non-na? c2))
+     (check-true (series-is-sorted? c2))
 
      (check equal? (for/list ((x (in-series c1))) x) '())
      (check equal? (for/list ((x (in-series c2))) x) '(1 2 3 5))
 
      (check equal? (series-index-of c2 3) 2)
+     (let-values ([(low upr) (series-equal-range c2 1)])
+       (check equal? low 0)
+       (check equal? upr 1))
+     (let-values ([(low upr) (series-equal-range c2 3)])
+       (check equal? low 2)
+       (check equal? upr 3))
 
      (check-not-exn
       (lambda ()
@@ -245,7 +338,36 @@
      (check equal? (series-ref c2 3) #f)
      (check equal? (series-na-count c2) 1) ; C2 has one NA value
 
-     )))
+     (define c3 (make-series "c3" #:data #(1 1 1 2 2 2 2 3 3 3) #:cmpfn <))
+
+     (let-values ([(low upr) (series-equal-range c3 1)])
+       (check equal? low 0)
+       (check equal? upr 3))
+     (let-values ([(low upr) (series-equal-range c3 2)])
+       (check equal? low 3)
+       (check equal? upr 7))
+     (let-values ([(low upr) (series-equal-range c3 3)])
+       (check equal? low 7)
+       (check equal? upr 10))
+
+     (let-values ([(low upr) (series-equal-range c3 1.5)])
+       (check equal? low 3)
+       (check equal? upr 3))
+     (let-values ([(low upr) (series-equal-range c3 2.3)])
+       (check equal? low 7)
+       (check equal? upr 7))
+     (let-values ([(low upr) (series-equal-range c3 2.7)])
+       (check equal? low 7)
+       (check equal? upr 7))
+
+     (define c4 (copy-series c2))
+     (check-false (equal? c2 c4))
+     (check-true (equal? (series-name c2) (series-name c4)))
+     (check-true (for/and ([a (in-series c2)] [b (in-series c4)])
+                   (equal? a b)))
+     (check-false (series-is-sorted? c4))
+
+     (check-true (series-is-sorted? (copy-series c3))))))
 
 
 ;;............................................................... spline ....
@@ -263,7 +385,7 @@
      (check-pred real? (fn 0.5))
      (check-pred real? (fn 1.0))
      (check-pred real? (fn -2))         ; outside the points range
-     (check-pred real? (fn 10))         ; outside the points range
+     (check-pred real? (fn 10)))))         ; outside the points range
 
      ;;
      ;; This will plot the spline and the know points, useful for
@@ -274,7 +396,7 @@
      ;;                    (points data-points))
      ;;              #:x-min -5 #:x-max 5) show #t)
 
-     )))
+     
 
 
 ;;........................................................... data-frame ....
@@ -306,6 +428,7 @@
       (lambda ()
         (df-add-series! df c1)))
      (check equal? (df-count-na df "col1") 0)
+     (check-true (df-is-sorted? df "col1"))
      (define c2 (make-series "col2" #:data #(3 2 1 0) #:contract integer? #:cmpfn >))
      (check-not-exn
       (lambda ()
@@ -490,6 +613,9 @@
      (check = (df-index-of df "col1" -1) 0)
      (check = (df-index-of df "col1" 100) 4)
      (check equal? (df-index-of* df "col1" 2 -1 100) '(1 0 4))
+     (let-values ([(low upr) (df-equal-range df "col1" 2)])
+       (check equal? low 1)
+       (check equal? upr 2))
 
      ;; col1: 1 2 3 4; col2: 3 2 1 0
      (check equal? (df-lookup df "col1" "col2" 3) 1)
@@ -544,21 +670,40 @@
 
      (define c6 (make-series "col6" #:data #(1 2 3 4) #:contract integer?))
      (df-add-series! df c6)
+     (check-false (df-is-sorted? df "col6"))
      (check-not-exn
       (lambda ()
         (df-set-sorted! df "col6" <)))
+     (check-true (df-is-sorted? df "col6"))
      (check-exn
       exn:fail:data-frame?
       (lambda ()
         ;; wrong sort order
         (df-set-sorted! df "col6" >)))
+     ;; attempting sorting with wrong sort order didn't destroy the previous sorting
+     (check-true (df-is-sorted? df "col6"))
+
+     (define c7 (make-series "col7"
+                             #:data #(1 1 2 2)
+                             #:contract integer? #:cmpfn <))
+     (df-add-series! df c7)
+
+     (check-true (df-is-sorted? df "col7"))
+     (check equal? (df-index-of df "col7" 1) 0)
+     (let-values ([(low upr) (df-equal-range df "col7" 1)])
+       (check equal? low 0)
+       (check equal? upr 2))
+     (check equal? (df-index-of df "col7" 2) 2)
+     (let-values ([(low upr) (df-equal-range df "col7" 2)])
+       (check equal? low 2)
+       (check equal? upr 4))
 
      (check-not-exn
       (lambda ()
         ;; note: this probably needs more tests...
-        (df-shallow-copy df)))
+        (df-shallow-copy df))))))
 
-     )))
+     
 
 (define (with-fresh-database thunk)
   (let ((db (sqlite3-connect #:database 'memory #:mode 'create)))
@@ -676,9 +821,9 @@
         (df-write/csv df csv-test-file)))
      (check-not-exn
       (lambda ()
-        (call-with-input-string text (lambda (in) (df-read/csv in)))))
+        (call-with-input-string text (lambda (in) (df-read/csv in))))))
 
-     )
+     
 
    (test-case "df-read/csv: duplicate header names"
      (define df (df-read/csv sample4-csv))
@@ -686,9 +831,9 @@
      (check equal? (df-select df "one") #(1 1))
      (check equal? (df-select df "one (1)") #(2 2))
      (check equal? (df-select df "one (2)") #(3 3))
-     (check equal? (df-select df "one (3)") #(4 4)))
+     (check equal? (df-select df "one (3)") #(4 4)))))
 
-   ))
+   
 
 
 (define gpx-tests
@@ -728,9 +873,9 @@
                    (lambda (out) (df-write/gpx df-1136 out))))))
      (check-not-exn
       (lambda ()
-        (call-with-input-string str (lambda (in) (df-read/gpx in)))))
+        (call-with-input-string str (lambda (in) (df-read/gpx in))))))))
 
-     )))
+     
 
 (define tcx-tests
   (test-suite
@@ -753,8 +898,8 @@
      (check-true (df-contains? df "alt" "cad" "dst" "lat" "lon" "pwr" "spd" "timestamp"))
      (check-true (> (df-row-count df) 0))
      (check-true (list? (df-get-property df 'laps)))
-     (check-true (> (length (df-get-property df 'laps)))))
-  ))
+     (check-true (> (length (df-get-property df 'laps)))))))
+  
 
 (define stats+mmax-tests
   (test-suite
@@ -796,11 +941,11 @@
      (check-not-exn
       (lambda()
         (define mmax (df-mean-max df "spd"))
-        (check > (length mmax) 0)       ; need a better test
-        ))
+        (check > (length mmax) 0))))))       ; need a better test
+        
 
 
-     )))
+     
 
 (define histogram-tests
   (test-suite
@@ -830,9 +975,9 @@
      (let ((h (df-histogram df-1136 "spd-tag")))
        (check = (vector-length h) 3)      ; the three tags
        (let ((n (for/sum ([item (in-vector h)]) (vector-ref item 1))))
-         (check = n (df-row-count df-1136))))
+         (check = n (df-row-count df-1136)))))))
 
-     )))
+     
 
 
 (define rdp-simplify-tests
@@ -880,8 +1025,8 @@
                                   #:keep-positions
                                   (list test-point
                                         (sub1 nitems) ; last one
-                                        (+ nitems 5) ; out of range
-                                        )))
+                                        (+ nitems 5)))) ; out of range
+                                        
      ;; The test-point and the one that follows were kept in the output set...
      (check-pred exact-nonnegative-integer?
                  (vector-memq (vector-ref data test-point) data-5))
@@ -891,9 +1036,9 @@
      (define data-4 (rdp-simplify data #:epsilon 0.04 #:destroy-original? #t))
      (check < (vector-length data-4) (vector-length data-3))
      ;; data now contains #f values, as it was destroyed
-     (check > (for/sum ([d (in-vector data)] #:when (eq? #f d)) 1) 0)
+     (check > (for/sum ([d (in-vector data)] #:when (eq? #f d)) 1) 0))))
 
-     )))
+     
 
 (define scatter-tests
   (test-suite
@@ -929,9 +1074,9 @@
        ;; NOTE: the x y and timestamp values were chosen carefully so we can
        ;; check if they shifted correctly with simple arithmetic!
        (check = (- ts x) timestamp)
-       (check = (- y x) (- shift-amount)))
+       (check = (- y x) (- shift-amount))))))
 
-     )))
+     
 
 ;;.................................................... least-squares-fit ....
 
@@ -1037,7 +1182,7 @@
                       df "base2" "log"
                       #:mode 'logarithmic
                       #:residual? #t))
-     (check-modified-residuals fit-log df "base2" "log")
+     (check-modified-residuals fit-log df "base2" "log"))))
 
      ;; NOTE: power fit does not seem to generate minimum residuals, not a
      ;; mathematician, so I don't know why, see explanation for
@@ -1051,7 +1196,7 @@
      ;;                  #:annealing-iterations 1000))
      ;; (check-modified-residuals fit-pow df "base2" "pow")
 
-     )))
+     
 
 (define slr-tests
   (test-suite
@@ -1115,7 +1260,7 @@
   (require al2-test-runner)
   (run-tests #:package "data-frame"
              #:results-file "test-results-data-frame.xml"
-             bsearch-tests
+             lower+upper-bound-tests
              series-tests
              spline-tests
              df-tests

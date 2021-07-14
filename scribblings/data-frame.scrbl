@@ -148,6 +148,14 @@ names.
 
 }
 
+@defproc[(df-duplicate-series (df data-frame?) (name string?)) series?]{
+Duplicates the series with name @racket[name] in the data-frame
+@racket[df]. The resulting copy will not impact the original.
+
+If the series with name @racket[name] is delayed
+(see @racket[df-add-lazy!]), this will force it.
+}
+
 @defproc[(df-set-sorted! (df data-frame?) (name string?) (cmpfn (or/c
            #f (-> any/c any/c boolean?)))) any/c]{
 
@@ -170,7 +178,14 @@ all values in the series match @racket[contractfn] or are NA.  The
 
 }
 
-@defform[(for/data-frame (series-name ...) body-or-break ... body)]{
+@defproc[(df-shallow-copy [df data-frame?]) data-frame]{
+  Creates a copy of @racket[df]. The returned copy will reference the
+  same data series objects as the original (and the properties), but any
+  add/delete operations, for both series and properties, will only affect
+  the copy.
+}
+
+@defform[(for/data-frame (series-name ...) (for-clause ...) body-or-break ... body)]{
 Constructs a new data-frame with the given @racket[series-name]s,
 row-by-row.
 
@@ -189,7 +204,7 @@ Each iteration must have the same contract.
 ]
 }
 
-@defform[(for*/data-frame (series-name ...) body-or-break ... body)]{
+@defform[(for*/data-frame (series-name ...) (for-clause ...) body-or-break ... body)]{
 Like @racket[for/data-frame], but iterates like @racket[for*].
 
 @examples[#:eval ev
@@ -421,6 +436,12 @@ value, which is a list with all the values from the selected
 
 }
 
+@defproc[(df-is-sorted? (df data-frame?) (series string?)) boolean?]{
+Determines if the given series @racket[series] in the data-frame @racket[df]
+is sorted (i.e. @racket[df-set-sorted!] has been called and succeeded for this
+series).
+}
+
 @deftogether[(                        
 @defproc[(df-index-of (df data-frame?) (series string?) (value any/c)) index/c]
 @defproc[(df-index-of* (df data-frame?) (series string?) (value any/c) ...) (listof index/c)])]{
@@ -441,6 +462,24 @@ or equal than the first value of the series and a value of
 @racket[(df-row-count df)] is returned if the value is greater than
 all the values in @racket[series].
 
+}
+
+@defproc[(df-equal-range (df data-frame?) (series string?) (value any/c))
+         (values index/c index/c)]{
+Finds the lower bound of appearance (inclusive) and upper bound of appearance
+(exclusive) of @racket[value], and return them respectively, in the data frame
+@racket[df]. This is useful for when a given series has multiple elements, and
+you want to find all of their occurrences. As the given series must be sorted,
+this is a range, and not a collection of indices.
+
+The series must be sorted (see @racket[df-set-sorted!]), or else this will
+error.
+
+The given @racket[value] need not be present in the @racket[series]. If this is
+the case, the lower bound is the position of the first element which comes before
+@racket[value], according to the sort function, and the upper bound is the first
+element which comes after @racket[value]. This is the range in which the given
+value could be inserted and keep the series sorted.
 }
 
 @deftogether[(

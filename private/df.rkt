@@ -68,6 +68,13 @@
    (make-hash)
    (hash-copy properties)))
 
+;; Creates a copy of the series SERIES in the data frame DF. The returned copy
+;; will reference the same internal elements as the original, but any blessing
+;; operations or additions/deletions will only affect the copy.
+(define (df-duplicate-series df series)
+  (let ([s (df-get-series df series)])
+    (copy-series s)))
+
 ;; Return the series names in the data frame DF, as a list of strings.  The
 ;; names are returned in an unspecified order.
 (define (df-series-names df)
@@ -248,6 +255,12 @@
         val)
       (for/vector #:length (- stop start) ([item sequence]) (list->vector item))))
 
+;; Determines if the given SERIES in the data frame DF is sorted. Useful for
+;; knowing when df-index-of is possible.
+(define (df-is-sorted? df series)
+  (let ([s (df-get-series df series)])
+    (series-is-sorted? s)))
+
 ;; Return the index (position) of VALUE in the data frame SERIES.  If SERIES
 ;; is not sorted, this will raise an error.  VALUE might not be present in the
 ;; series, in that case, the returned index is the position of the first
@@ -266,6 +279,14 @@
 (define (df-index-of* df series . values)
   (let ([s (df-get-series df series)])
     (for/list ([v (in-list values)]) (series-index-of s v))))
+
+;; Return the indices (position) of VALUE in the data frame DF in the given SERIES.
+;; If SERIES is not sorted, this will raise an error. This will return a pair of the
+;; leftmost and rightmost index in the given series, in case the value is duplicated.
+;; All other behavior is similar to or the same as df-index-of.
+(define (df-equal-range df series value)
+  (let ([s (df-get-series df series)])
+    (series-equal-range s value)))
 
 ;; Return the value at INDEX for SERIES.
 (define (df-ref df index series)
@@ -544,8 +565,10 @@
                      (#:start index/c #:stop index/c)
                      #:rest (listof string?)
                      sequence?))
+ (df-is-sorted? (-> data-frame? string? boolean?))
  (df-index-of (-> data-frame? string? any/c index/c))
  (df-index-of* (->* (data-frame? string?) #:rest list? (listof index/c)))
+ (df-equal-range (-> data-frame? string? any/c (values index/c index/c)))
  (df-ref (-> data-frame? index/c string? any/c))
  (df-set! (-> data-frame? index/c any/c string? any/c))
  (df-ref* (->* (data-frame? index/c) #:rest (listof string?) vector?))
@@ -571,6 +594,7 @@
  (df-set-contract! (-> data-frame? string? (or/c #f (-> any/c boolean?)) any/c))
  (df-count-na (-> data-frame? string? exact-nonnegative-integer?))
  (df-shallow-copy (-> data-frame? data-frame?))
+ (df-duplicate-series (-> data-frame? string? series?))
  (df-is-na? (-> data-frame? string? any/c boolean?))
  (df-has-na? (-> data-frame? string? boolean?))
  (df-has-non-na? (-> data-frame? string? boolean?))

@@ -61,7 +61,7 @@
     (define vprev (if (> index beg) (vector-ref data (sub1 index)) #f))
     (cond ((equal? v na)
            (df-raise "check-valid-sort: ~a contains NA / values @~a" name index))
-          ((and (> index beg) (not (cmpfn vprev v)))
+          ((and (> index beg) (not (or (equal? vprev v) (cmpfn vprev v))))
            (df-raise "check-valid-sort: ~a not really sorted @~a (~a vs ~a)"
                      name index vprev v)))))
 
@@ -156,6 +156,10 @@
     (check-valid-sort df cmpfn))
   df)
 
+;; Creates a copy of the series C.
+(define (copy-series c)
+  (struct-copy series c [data (vector-copy (series-data c))]))
+
 ;; Return the number of elements in the series C.
 (define (series-size c)
   (- (series-end c) (series-beg c)))
@@ -203,6 +207,12 @@
   (when cmpfn
     (check-valid-sort c cmpfn))
   (set-series-cmpfn! c cmpfn))
+
+;; Checks if the given series C is sorted (so it has a comparison function,
+;; as if it had one and was not sorted, this would be a construction time
+;; error).
+(define (series-is-sorted? c)
+  (and (series-cmpfn c) #t))
 
 ;; Mark the data series C as having the CONTRACTFN contract.  All elements
 ;; will be validated with the contract first and an error will be raised if
@@ -257,11 +267,20 @@
 (define (series-index-of c value)
   (match-define (series name data beg end cmpfn _ _) c)
   (if cmpfn
-      (bsearch data value #:cmp cmpfn #:start beg #:stop end)
+      (lower-bound data value #:cmp cmpfn #:start beg #:stop end)
       (df-raise (format "series-index-of: ~a is not sorted" name))
       #;(for/first ([(x index) (in-indexed (in-vector data beg end))]
                     #:when (equal? x value))
           index)))
+
+;; Find the first and last indices (multiple) of VALUE in the data series C.
+;; The series has to be sorted, otherwise an error is raised. All other results
+;; are the same as series-index-of.
+(define (series-equal-range c value)
+  (match-define (series name data beg end cmpfn _ _) c)
+  (if cmpfn
+      (equal-range data value #:cmp cmpfn #:start beg #:stop end)
+      (df-raise (format "series-equal-range: ~a is not sorted" name))))
 
 ;; Return the number of "not available" values in the data series.
 (define (series-na-count c)
@@ -295,12 +314,14 @@
                     #:na any/c
                     #:contract (-> any/c boolean?))
                    series?))
+ (copy-series (-> series? series?))
  (series? (-> any/c boolean?))
  (series-na (-> series? any/c))
  (series-name (-> series? string?))
  (series-size (-> series? exact-nonnegative-integer?))
  (series-empty? (-> series? boolean?))
  (series-is-na? (-> series? any/c boolean?))
+ (series-is-sorted? (-> series? boolean?))
  (series-free-space (-> series? exact-nonnegative-integer?))
  (series-reserve-space (-> series? exact-nonnegative-integer? any/c))
  (series-ref (-> series? exact-nonnegative-integer? any/c))
@@ -311,6 +332,8 @@
                             exact-integer?)
                  sequence?))
  (series-index-of (-> series? any/c (or/c #f exact-nonnegative-integer?)))
+ (series-equal-range (-> series? any/c (values (or/c #f exact-nonnegative-integer?)
+                                               (or/c #f exact-nonnegative-integer?))))
  (series-bless-sorted (-> series? (or/c #f (-> any/c any/c boolean?)) any/c))
  (series-bless-contract (-> series? (or/c #f (-> any/c boolean?)) any/c))
  (series-na-count (-> series? exact-nonnegative-integer?))
