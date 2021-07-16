@@ -193,7 +193,7 @@
     (define ts
       (with-handlers
         (((lambda (e) #t) (lambda (e) (make-series "timestamp" #:data timestamp))))
-        (make-series "timestamp" #:data timestamp #:cmpfn <=)))
+        (make-series "timestamp" #:data timestamp #:cmpfn <)))
     (df-add-series! df ts))
 
   (define (maybe-add name data)
@@ -230,7 +230,7 @@
   ;; order, and marking it as sorted will fail, ignore such a failure.
   (with-handlers
     (((lambda (e) #t) (lambda (e) (void))))
-    (df-set-sorted! df "dst" <=))
+    (df-set-sorted! df "dst" <))
 
   (df-put-property! df 'laps (reverse laps))
 

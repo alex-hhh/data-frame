@@ -422,7 +422,7 @@ EOS
     (define ts
       (with-handlers
         (((lambda (e) #t) (lambda (e) (make-series "timestamp" #:data timestamp))))
-        (make-series "timestamp" #:data timestamp #:cmpfn <=)))
+        (make-series "timestamp" #:data timestamp #:cmpfn <)))
     (df-add-series! df ts))
 
   (define (maybe-add name data)
@@ -457,7 +457,7 @@ EOS
   ;; order, and marking it as sorted will fail, ignore such a failure.
   (with-handlers
     (((lambda (e) #t) (lambda (e) (void))))
-    (df-set-sorted! df "dst" <=))
+    (df-set-sorted! df "dst" <))
 
   (define track-name (get-track-name track))
   (when track-name
