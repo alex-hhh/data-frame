@@ -68,6 +68,22 @@
 ;; NOTE: this works like the std::lower_bound() and std::upper_bound()
 ;; functions in C++.
 
+(define (lower-bound/no-checks vec val
+                               #:cmp (cmp-fn <)
+                               #:key (key-fn values)
+                               #:start (start 0)
+                               #:stop (end (vector-length vec)))
+
+  (let loop ([start start]
+             [end end])
+    (if (= start end)
+        start
+        (let* ([mid (+ start (quotient (- end start) 2))]
+               [mid-val (key-fn (vector-ref vec mid))])
+          (if (cmp-fn mid-val val)
+              (loop (add1 mid) end)
+              (loop start mid))))))
+
 (define (lower-bound vec val
                      #:cmp (cmp-fn <)
                      #:key (key-fn values)
@@ -83,15 +99,23 @@
            (raise-range-error
             'lower-bound "vector" "ending " end vec start vlen 0))))
 
+  (lower-bound/no-checks vec val #:cmp cmp-fn #:key key-fn #:start start #:stop end))
+
+(define (upper-bound/no-checks vec val
+                               #:cmp (cmp-fn <)
+                               #:key (key-fn values)
+                               #:start (start 0)
+                               #:stop (end (vector-length vec)))
+
   (let loop ([start start]
              [end end])
     (if (= start end)
         start
-        (let* ((mid (exact-truncate (/ (+ start end) 2)))
-               (mid-val (key-fn (vector-ref vec mid))))
-          (if (cmp-fn mid-val val)
-              (loop (add1 mid) end)
-              (loop start mid))))))
+        (let* ([mid (+ start (quotient (- end start) 2))]
+               [mid-val (key-fn (vector-ref vec mid))])
+          (if (cmp-fn val mid-val)
+              (loop start mid)
+              (loop (add1 mid) end))))))
 
 (define (upper-bound vec val
                      #:cmp (cmp-fn <)
@@ -108,15 +132,7 @@
            (raise-range-error
             'upper-bound "vector" "ending " end vec start vlen 0))))
 
-  (let loop ([start start]
-             [end end])
-    (if (= start end)
-        start
-        (let* ((mid (exact-truncate (/ (+ start end) 2)))
-               (mid-val (key-fn (vector-ref vec mid))))
-          (if (cmp-fn val mid-val)
-              (loop start mid)
-              (loop (add1 mid) end))))))
+  (upper-bound/no-checks vec val #:cmp cmp-fn #:key key-fn #:start start #:stop end))
 
 ;; Return two values representing the start and one-plus end ranges where VAL
 ;; is present in the sorted vector VEC.  This is equivalent to calling
@@ -137,13 +153,11 @@
            (raise-range-error
             'equal-range "vector" "ending " end vec start vlen 0))))
 
-  (define lb (lower-bound vec val #:cmp cmp-fn #:key key-fn #:start start #:stop end))
+  (define lb (lower-bound/no-checks vec val #:cmp cmp-fn #:key key-fn #:start start #:stop end))
   (cond ((>= lb end) (values lb lb))
-        ((equal? (vector-ref vec lb) val)
+        (else
          (values lb
-                 (upper-bound vec val #:cmp cmp-fn #:key key-fn #:start lb #:stop end)))
-        (#t
-         (values lb lb))))
+                 (upper-bound/no-checks vec val #:cmp cmp-fn #:key key-fn #:start lb #:stop end)))))
 
 
 ;;............................................................. provides ....
@@ -155,6 +169,12 @@
                     #:start integer?
                     #:stop integer?)
                    integer?))
+ (lower-bound/no-checks (->* ((vectorof any/c) any/c)
+                             (#:cmp (-> any/c any/c boolean?)
+                              #:key (-> any/c any/c)
+                              #:start integer?
+                              #:stop integer?)
+                             integer?))
 
  (upper-bound (->* ((vectorof any/c) any/c)
                    (#:cmp (-> any/c any/c boolean?)
@@ -162,6 +182,12 @@
                     #:start integer?
                     #:stop integer?)
                    integer?))
+ (upper-bound/no-checks (->* ((vectorof any/c) any/c)
+                             (#:cmp (-> any/c any/c boolean?)
+                              #:key (-> any/c any/c)
+                              #:start integer?
+                              #:stop integer?)
+                             integer?))
 
  (equal-range (->* ((vectorof any/c) any/c)
                    (#:cmp (-> any/c any/c boolean?)

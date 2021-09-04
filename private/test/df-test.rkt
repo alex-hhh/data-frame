@@ -3,7 +3,7 @@
 ;; df-test.rkt -- tests for data-frame.rkt
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018, 2020 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -198,7 +198,7 @@
       (lambda ()
         ;; end is out of range, should raise exception
         (upper-bound data 5 #:start 0 #:stop 200)))
-     
+
      (check-exn
       exn:fail:contract?
       (lambda ()
@@ -275,12 +275,12 @@
 
      (check-not-exn
       (lambda ()
-        (series-bless-sorted c2 <)))
+        (series-set-sorted! c2 <)))
 
      (check-exn
       exn:fail:data-frame?
       (lambda ()
-        (series-bless-contract c2 string?)))
+        (series-set-contract! c2 string?)))
 
      (check-exn
       exn:fail:contract?
@@ -296,7 +296,7 @@
 
      (check-not-exn
       (lambda ()
-        (series-bless-contract c2 real?)))
+        (series-set-contract! c2 real?)))
 
      (check-not-exn
       (lambda ()
@@ -306,7 +306,7 @@
      (check-exn
       exn:fail:data-frame?
       (lambda ()
-        (series-bless-sorted c2 >)))
+        (series-set-sorted! c2 >)))
 
      (check equal? (series-na-count c2) 0)    ; no NA values in C2
      (check equal? (series-index-of c2 3) 2)
@@ -329,7 +329,7 @@
      (check-not-exn
       (lambda ()
         ;; remove sort constrain on c2
-        (series-bless-sorted c2 #f)))
+        (series-set-sorted! c2 #f)))
 
      (check-not-exn
       (lambda ()
@@ -370,9 +370,85 @@
      (check-true (series-is-sorted? (copy-series c3))))))
 
 
+;;...................................................... secondary-index ....
+
+(define sx-tests
+  (test-suite
+   "sx"
+
+   (test-case "make-sx-comparator"
+     ;; NA's are greater than everything else (they are at the back)
+     (let ([cmp (make-sx-comparator (list string<? <) '(#f #f) #f)])
+
+       ;; NOTE: the first element in the keys is a position and does not
+       ;; participate in the comparison.
+       (check-true (cmp '(12 "Alpha" 1) '(13 "Omega" 1)))
+       (check-false (cmp '(14 "Omega" 1) '(15 "Alpha" 1)))
+
+       (check-true (cmp '(16 "Hello" 1) '(17 "Hello" 2)))
+       (check-false (cmp '(18 "Hello" 2) '(19 "Hello" 1)))
+       (check-false (cmp '(20 "Hello" 1) '(21 "Hello" 1)))
+
+       ;; Incomplete keys are equal to a more complete key -- note that both
+       ;; "less than" directions are false
+       (check-false (cmp '(22 "Hello") '(23 "Hello" 1)))
+       (check-false (cmp '(24 "Hello" 1) '(25 "Hello")))
+
+       ;; NA's at the back
+       (check-true (cmp '(26 "Hello" 1) '(27 "Hello" #f)))
+       (check-false (cmp '(27 "Hello" #f) '(26 "Hello" 1)))
+       (check-true (cmp '(29 "Hello" 2) '(28 #f 1)))
+       (check-false (cmp '(28 #f 1) '(29 "Hello" 2)))
+
+       (check-true (cmp '(30 #f 1) '(31 #f 2)))
+       (check-false (cmp '(31 #f 2) '(30 #f 1))))
+
+     ;; NA's are smaller than everything else (they are in front)
+     (let ([cmp (make-sx-comparator (list string<? <) '(#f #f) #t)])
+
+       ;; NOTE: the first element in the keys is a position and does not
+       ;; participate in the comparison.
+       (check-true (cmp '(12 "Alpha" 1) '(13 "Omega" 1)))
+       (check-false (cmp '(14 "Omega" 1) '(15 "Alpha" 1)))
+
+       (check-true (cmp '(16 "Hello" 1) '(17 "Hello" 2)))
+       (check-false (cmp '(18 "Hello" 2) '(19 "Hello" 1)))
+       (check-false (cmp '(20 "Hello" 1) '(21 "Hello" 1)))
+
+       ;; Incomplete keys are equal to a more complete key -- note that both
+       ;; "less than" directions are false
+       (check-false (cmp '(22 "Hello") '(23 "Hello" 1)))
+       (check-false (cmp '(24 "Hello" 1) '(25 "Hello")))
+
+       ;; NA's at the front
+       (check-false (cmp '(26 "Hello" 1) '(27 "Hello" #f)))
+       (check-true (cmp '(27 "Hello" #f) '(26 "Hello" 1)))
+       (check-false (cmp '(29 "Hello" 2) '(28 #f 1)))
+       (check-true (cmp '(28 #f 1) '(29 "Hello" 2)))
+
+       (check-true (cmp '(30 #f 1) '(31 #f 2)))
+       (check-false (cmp '(31 #f 2) '(30 #f 1))))
+
+     ;; This shows a comparator where the NA value for the second column is 3.
+     (let ([cmp/na-front (make-sx-comparator (list string<? <) '(#f 3) #t)]
+           [cmp/na-back (make-sx-comparator (list string<? <) '(#f 3) #f)])
+
+       ;; OK, so 1 is less than 3, we know that :-)
+       (check-true (cmp/na-back '(12 "Alpha" 1) '(13 "Alpha" 3)))
+       (check-false (cmp/na-back '(14 "Alpha" 3) '(15 "Alpha" 1)))
+
+       ;; ... since 3 is a NA value, 4 is also less than 3...
+       (check-true (cmp/na-back '(12 "Alpha" 4) '(13 "Alpha" 3)))
+       (check-false (cmp/na-back '(15 "Alpha" 3) '(14 "Alpha" 4)))
+
+       ;; ... but if NAs are in front, 3 is less than 1
+       (check-false (cmp/na-front '(12 "Alpha" 1) '(13 "Alpha" 3)))
+       (check-true (cmp/na-front '(14 "Alpha" 3) '(15 "Alpha" 1))))
+
+     )))
+
+
 ;;............................................................... spline ....
-
-
 
 (define spline-tests
   (test-suite
@@ -396,7 +472,7 @@
      ;;                    (points data-points))
      ;;              #:x-min -5 #:x-max 5) show #t)
 
-     
+
 
 
 ;;........................................................... data-frame ....
@@ -405,7 +481,7 @@
 
 ;;  (df-put-property (-> data-frame? symbol? any/c any/c))
 ;;  (df-get-property (->* (data-frame? symbol?) ((-> any/c)) any/c))
-;;  (df-del-property (-> data-frame? symbol? any/c))
+;;  (df-del-property (-> data-frame? symbol? any/c))
 ;;  (df-set-default-weight-series (-> data-frame? string? any/c))
 ;;  (df-get-default-weight-series (-> data-frame? (or/c #f string?)))
 ;;  (valid-only (-> any/c boolean?))
@@ -424,249 +500,9 @@
      (check equal? (df-row-count df) 0)
 
      (define c1 (make-series "col1" #:data #(1 2 3 4) #:contract integer? #:cmpfn <))
-     (check-not-exn
-      (lambda ()
-        (df-add-series! df c1)))
-     (check equal? (df-count-na df "col1") 0)
-     (check-true (df-is-sorted? df "col1"))
+     (df-add-series! df c1)
      (define c2 (make-series "col2" #:data #(3 2 1 0) #:contract integer? #:cmpfn >))
-     (check-not-exn
-      (lambda ()
-        (df-add-series! df c2)))
-     (check-not-exn
-      (lambda ()
-        (df-add-derived!
-         df "col3" '("col1" "col2")
-         (lambda (v)
-           (match-define (list c1 c2) v)
-           (+ c1 c2)))))
-     (check-exn
-      exn:fail:data-frame?
-      (lambda ()
-        ;; This will fail as col0 has 2 rows
-        (define c0 (make-series "col0" #:data #(1 2)))
-        (df-add-series! df c0)))
-     (check = (df-row-count df) 4)
-     (check-true (df-contains? df "col1" "col2"))
-     ;; NOTE: col4 does not exist
-     (check-false (df-contains? df "col1" "col4"))
-     (check-true (df-contains/any? df "col1" "col4"))
-     (check-true (df-contains? df "col3"))
-     (check-not-exn
-      (lambda ()
-        (df-del-series! df "col3")))
-     (check-false (df-contains? df "col3"))
-     ;; Deleting a non-existent series should be OK
-     (check-not-exn
-      (lambda ()
-        (df-del-series! df "col3")))
-
-     (check equal? (df-select df "col1") #(1 2 3 4))
-     (check equal? (df-select df "col1" #:filter odd?) #(1 3))
-     (check equal? (df-select df "col1" #:start 1 #:stop 3) #(2 3))
-     (check equal? (df-select* df "col1" "col2") #(#(1 3) #(2 2) #(3 1) #(4 0)))
-     (check equal? (df-select* df "col1" "col2" #:start 1 #:stop 3) #(#(2 2) #(3 1)))
-
-     (define result (df-select* df "col1" "col2" #:start 1 #:stop 2
-                                #:filter (lambda (val)
-                                           (check-pred vector? val)
-                                           (check = (vector-length val) 2)
-                                           (match-define (vector c1 c2) val)
-                                           (check = c1 2)
-                                           (check = c2 2)
-                                           #f)))
-     (check-true (and (vector? result) (= (vector-length result) 0)))
-
-     (let ()                            ; (test-case "`df-map` test cases"
-       (check equal?
-              (df-map df
-                      '("col1" "col2")
-                      (lambda (prev current)
-                        (if prev
-                            ;; A delta series on col1, col2
-                            (match-let (((list pc1 pc2) prev)
-                                        ((list c1 c2) current))
-                              (list (- c1 pc1) (- c2 pc2)))
-                            'none)))
-              #(none (1 -1) (1 -1) (1 -1)))
-
-       (check equal?
-              (df-map df
-                      '("col1" "col2")
-                      (lambda (current)
-                        (match-let (((list c1 c2) current))
-                          (+ c1 c2))))
-              #(4 4 4 4))
-
-       (check equal?
-              (df-map df
-                      '("col1" "col2")
-                      (lambda (prev current)
-                        (if prev
-                            ;; A delta series on col1, col2
-                            (match-let (((list pc1 pc2) prev)
-                                        ((list c1 c2) current))
-                              (list (- c1 pc1) (- c2 pc2)))
-                            'none))
-                      #:start 1 #:stop 3)
-              #(none (1 -1))))
-
-     (let ()                            ; test-case "`df-for-each` test cases"
-       (define result1 '())
-       (df-for-each df
-                    '("col1" "col2")
-                    (lambda (prev current)
-                      (define v (if prev
-                                    ;; A delta series on col1, col2
-                                    (match-let (((list pc1 pc2) prev)
-                                                ((list c1 c2) current))
-                                      (list (- c1 pc1) (- c2 pc2)))
-                                    'none))
-                      (set! result1 (cons v result1)))
-                    #:start 1 #:stop 3)
-       (check equal? result1 '((1 -1) none))
-
-       (define result2 '())
-       (df-for-each df
-                    '("col1" "col2")
-                    (lambda (prev current)
-                      (define v (if prev
-                                    ;; A delta series on col1, col2
-                                    (match-let (((list pc1 pc2) prev)
-                                                ((list c1 c2) current))
-                                      (list (- c1 pc1) (- c2 pc2)))
-                                    'none))
-                      (set! result2 (cons v result2))))
-       (check equal? result2 '((1 -1) (1 -1) (1 -1) none))
-
-       (define result3 '())
-       (df-for-each df
-                    '("col1" "col2")
-                    (lambda (current)
-                      (define v (match-let (((list c1 c2) current))
-                                  (+ c1 c2)))
-                      (set! result3 (cons v result3))))
-       (check equal? result3 '(4 4 4 4)))
-
-     (let ()                            ; test-case "`df-fold` test cases"
-       (check equal? (df-fold df
-                              '("col1" "col2") ; series
-                              0                ; initial value
-                              (lambda (accumulator v)
-                                (match-define (list c1 c2) v)
-                                (+ accumulator c1 c2)))
-              16)
-       (check equal? (df-fold df
-                              '("col1" "col2") ; series
-                              0                ; initial value
-                              (lambda (accumulator prev current)
-                                (if prev
-                                    (match-let (((list c1 c2) prev)
-                                                ((list c3 c4) current))
-                                      (+ accumulator c1 c2 c3 c4))
-                                    accumulator)))
-              24)
-       (check equal? (df-fold df
-                              '("col1" "col2") ; series
-                              0                ; initial value
-                              (lambda (accumulator v)
-                                (match-define (list c1 c2) v)
-                                (+ accumulator c1 c2))
-                              #:start 1 #:stop 4)
-              12)
-       (check equal? (df-fold df
-                              '("col1" "col2") ; series
-                              0                ; initial value
-                              (lambda (accumulator prev current)
-                                (if prev
-                                    (match-let (((list c1 c2) prev)
-                                                ((list c3 c4) current))
-                                      (+ accumulator c1 c2 c3 c4))
-                                    accumulator))
-                              #:start 1 #:stop 4)
-              16))
-
-     (let ()                     ; test-case "`in-data-frame/list` test cases"
-       (define result1 '())
-       (for ((item (in-data-frame/list df "col1" "col2" #:start 1 #:stop 3)))
-         (set! result1 (cons item result1)))
-       (check equal? result1 '((3 1) (2 2)))
-       (define result2 '())
-       (for ((item (in-data-frame/list df "col1" "col2")))
-         (set! result2 (cons item result2)))
-       (check equal? result2 '((4 0) (3 1) (2 2) (1 3)))
-       (define result3 '())
-       ;; See if we can select backwards
-       (for ((item (in-data-frame/list df "col1" "col2" #:start 2 #:stop -1)))
-         (set! result3 (cons item result3)))
-       (check equal? result3 '((1 3) (2 2) (3 1))))
-
-     (let ()                          ; test-case "`in-data-frame` test-cases"
-       (define sum1 (for/sum (((c1 c2) (in-data-frame df "col1" "col2" #:start 1 #:stop 3)))
-                      (+ c1 c2)))
-       (check = sum1 8)
-       (define sum2 (for/sum (((c1 c2) (in-data-frame df "col1" "col2")))
-                      (+ c1 c2)))
-       (check = sum2 16))
-
-     (check = (df-index-of df "col1" 2) 1)
-     (check = (df-index-of df "col1" -1) 0)
-     (check = (df-index-of df "col1" 100) 4)
-     (check equal? (df-index-of* df "col1" 2 -1 100) '(1 0 4))
-     (let-values ([(low upr) (df-equal-range df "col1" 2)])
-       (check equal? low 1)
-       (check equal? upr 2))
-
-     ;; col1: 1 2 3 4; col2: 3 2 1 0
-     (check equal? (df-lookup df "col1" "col2" 3) 1)
-     (check equal? (df-lookup df "col1" '("col1" "col2") 3) #(3 1))
-     (check equal? (df-lookup* df "col1" "col2" 1 4) '(3 0))
-     (check equal? (df-lookup* df "col1" '("col1" "col2") 1 4) '(#(1 3) #(4 0)))
-
-     (check = (df-lookup/interpolated df "col1" "col2" 0) 3) ; out of range
-     (check = (df-lookup/interpolated df "col1" "col2" 1) 3) ; at the beginning
-     (check = (df-lookup/interpolated df "col1" "col2" 4) 0) ; at the end
-     (check = (df-lookup/interpolated df "col1" "col2" 5) 0) ; out of range
-     (check < (abs (- (df-lookup/interpolated df "col1" "col2" 2.2) 1.8)) 0.001)
-
-     (check equal? (df-lookup/interpolated df "col1" '("col1" "col2") 0) #(1 3)) ; out of range
-     (check equal? (df-lookup/interpolated df "col1" '("col1" "col2") 1) #(1 3)) ; at the beginning
-     (check equal? (df-lookup/interpolated df "col1" '("col1" "col2") 4) #(4 0)) ; at the end
-     (check equal? (df-lookup/interpolated df "col1" '("col1" "col2") 5) #(4 0)) ; out of range
-     (let ((val (df-lookup/interpolated df "col1" '("col1" "col2") 2.2)))
-       (check < (abs (- (vector-ref val 0) 2.2)) 0.001)
-       (check < (abs (- (vector-ref val 1) 1.8)) 0.001))
-
-     (check = (df-ref df 1 "col1") 2)
-     (check equal? (df-ref* df 1 "col1" "col2") #(2 2))
-
-     (check-exn
-      exn:fail:contract?
-      (lambda ()
-        ;; only integer? values can be set (there is a #:contract on this
-        ;; column
-        (df-set! df 0 1.5 "col1")))
-     (check-exn
-      exn:fail:contract?
-      (lambda ()
-        ;; will break sort order
-        (df-set! df 0 100 "col1")))
-     (check-not-exn
-      (lambda ()
-        (df-set! df 0 -1 "col1")))
-     ;; Check that it was indeed set!
-     (check = (df-ref df 0 "col1") -1)
-
-     (check-not-exn
-      (lambda ()
-        (df-add-lazy!
-         df "col5" '("col1" "col2")
-         (lambda (v)
-           (match-define (list c1 c2) v)
-           (+ c1 c2)))))
-     (check-true (df-contains? df "col5"))
-     ;; Col5 will be materialized now
-     (check equal? (df-select df "col5") #(2 4 4 4))
+     (df-add-series! df c2)
 
      (define c6 (make-series "col6" #:data #(1 2 3 4) #:contract integer?))
      (df-add-series! df c6)
@@ -701,9 +537,580 @@
      (check-not-exn
       (lambda ()
         ;; note: this probably needs more tests...
-        (df-shallow-copy df))))))
+        (df-shallow-copy df))))
 
-     
+   (test-case "df-add-series!"
+     (define df (make-data-frame))
+     (define c0 (make-series "c0" #:data #(1 2 3 4) #:contract integer? #:cmpfn <))
+     (check-not-exn (lambda () (df-add-series! df c0)))
+     (check-true (df-contains? df "c0"))
+     (check equal? (df-count-na df "c0") 0)
+     (check-true (df-is-sorted? df "c0"))
+     (check = (df-row-count df) 4)
+
+     ;; Add another series with the same number of elements.
+     (define c1 (make-series "c1" #:data #(3 2 1 0) #:contract integer? #:cmpfn >))
+     (check-not-exn (lambda () (df-add-series! df c1)))
+
+     (check-true (df-contains? df "c0" "c1"))
+     ;; NOTE: all series must be present, c-non-existent is not
+     (check-false (df-contains? df "c0" "c-non-existent"))
+     ;; Any series must be present
+     (check-true (df-contains/any? df "c0" "c-non-existent"))
+
+     ;; This will fail as col0 has 2 rows in a data frame that has 4, and this
+     ;; should fail.
+     (check-exn
+      exn:fail:data-frame?
+      (lambda ()
+        (df-add-series! df (make-series "c2" #:data #(1 2)))))
+
+     ;; A series can be replaced by df-add-series!
+     (check-equal? (df-select df "c1") #(3 2 1 0))
+     (df-add-series! df (make-series "c1" #:data #(5 6 7 8)))
+     (check-equal? (df-select df "c1") #(5 6 7 8))
+
+     ;; A series can be deleted.
+     (check-not-exn (lambda () (df-del-series! df "c1")))
+     (check-false (df-contains? df "c1"))
+     ;; Deleting a non-existent series should be OK
+     (check-not-exn (lambda () (df-del-series! df "c1")))
+
+     ;; Check that an index is correctly rebuilt when an indexed series is
+     ;; rebuilt
+     (df-add-series! df (make-series "c" #:data #(3 2 1 0)))
+     (df-add-index! df "i" "c" <)
+     (check-equal? (df-select/by-index df #:index "i" "c") #(0 1 2 3))
+     ;; Replace "c"
+     (df-add-series! df (make-series "c" #:data #(4 3 2 1)))
+     (check-equal? (df-select/by-index df #:index "i" "c") #(1 2 3 4)))
+
+   (test-case "df-add-derived!"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4)))
+     (df-add-series! df (make-series "c1" #:data #(3 2 1 0)))
+     (check-not-exn
+      (lambda ()
+        (df-add-derived!
+         df "c2" '("c0" "c1")
+         (lambda (v)
+           (match-define (list c1 c2) v)
+           (+ c1 c2)))))
+     (check-equal? (df-select df "c2") #(4 4 4 4))
+
+     ;; Check that an index is correctly rebuilt when an indexed series is
+     ;; rebuilt
+     (df-add-series! df (make-series "c" #:data #(3 2 1 0)))
+     (df-add-index! df "i" "c" <)
+     (check-equal? (df-select/by-index df #:index "i" "c") #(0 1 2 3))
+     ;; Rebuilt "c"
+     (df-add-derived! df "c" '("c") (lambda (v) (add1 (list-ref v 0))))
+     (check-equal? (df-select/by-index df #:index "i" "c") #(1 2 3 4)))
+
+   (test-case "df-add-lazy!"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c1" #:data #(3 2 1 0)))
+     (df-add-series! df (make-series "c2" #:data #(0 1 2 3)))
+
+     (check-not-exn
+      (lambda ()
+        (df-add-lazy!
+         df "c3" '("c1" "c2")
+         (lambda (v)
+           (match-define (list c1 c2) v)
+           (+ c1 c2)))))
+     (check-true (df-contains? df "c3"))
+     ;; c3 will be materialized now...
+     (check equal? (df-select df "c3") #(3 3 3 3))
+
+     ;; Attempt to lazily replace an existing data series should fail...
+     (check-exn
+      exn:fail:data-frame?
+      (lambda ()
+        (df-add-lazy! df "c1" '("c3" "c1") (lambda (v) (add1 (list-ref v 0)))))))
+
+   (test-case "df-set!, df-ref, df-ref*"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4) #:contract integer? #:cmpfn <))
+
+     (check-exn
+      exn:fail:contract?
+      (lambda ()
+        ;; only integer? values can be set -- there is a #:contract on this
+        ;; series
+        (df-set! df 0 1.5 "c0")))
+     (check-exn
+      exn:fail:contract?
+      (lambda ()
+        ;; Setting the value 100 will break sort order on the column
+        (df-set! df 1 100 "c0")))
+     (check-not-exn
+      (lambda ()
+        ;; This is OK, as it matches the contract and does not break sort
+        ;; order
+        (df-set! df 0 -1 "c0")))
+     ;; Check that it was indeed set!
+     (check = (df-ref df 0 "c0") -1)
+
+     (check = (df-ref df 1 "c0") 2)
+     (df-add-series! df (make-series "c1" #:data #(2 3 2 2)))
+     (check equal? (df-ref* df 1 "c0" "c1") #(2 3))
+
+     ;; Check that an index is correctly rebuilt when a value in an indexed
+     ;; series changes
+     (df-add-series! df (make-series "c" #:data #(3 2 1 0)))
+     (df-add-index! df "i" "c" <)
+     (check-equal? (df-select/by-index df #:index "i" "c") #(0 1 2 3))
+     ;; Update one value in "c"
+     (df-set! df 1 4 "c")
+     (check = (df-ref df 1 "c") 4)
+     (check-equal? (df-select/by-index df #:index "i" "c") #(0 1 3 4)))
+
+   (test-case "df-index-of, df-index-of*, df-equal-range"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4) #:contract integer? #:cmpfn <))
+
+     (check = (df-index-of df "c0" 2) 1)
+     (check = (df-index-of df "c0" 1.5) 1) ; non existent value, find best match
+     (check equal? (df-index-of df "c0" 1.5 #:exact-match? #t) #f) ; not found
+     (check = (df-index-of df "c0" -1) 0)
+     (check equal? (df-index-of df "c0" -1 #:exact-match? #t) #f)
+     (check = (df-index-of df "c0" 100) 4)
+     (check equal? (df-index-of df "c0" 100 #:exact-match? #t) #f)
+
+     (check equal? (df-index-of* df "c0" 2 -1 100) '(1 0 4))
+     (check equal? (df-index-of* df "c0" 2 -1 100 #:exact-match? #t) '(1 #f #f))
+
+     (let-values ([(low upr) (df-equal-range df "c0" 2)])
+       (check equal? low 1)
+       (check equal? upr 2))
+     (let-values ([(low upr) (df-equal-range df "c0" 1.5)])
+       (check equal? low 1)
+       (check equal? upr 1))
+     (let-values ([(low upr) (df-equal-range df "c0" -1)])
+       (check equal? low 0)
+       (check equal? upr 0))
+     (let-values ([(low upr) (df-equal-range df "c0" 100)])
+       (check equal? low 4)
+       (check equal? upr 4))
+
+     ;; lookup using indexes
+     (df-add-series! df (make-series "c1" #:data #(4 3 2 1)))
+     (df-add-index! df "i1" "c1" <)
+
+     (check = (df-index-of df "c1" 2) 2)
+     (check = (df-index-of df "c1" 1.5) 2) ; non existent value, find best match
+     (check equal? (df-index-of df "c1" 1.5 #:exact-match? #t) #f) ; not found
+     (check = (df-index-of df "c1" -1) 3)
+     (check equal? (df-index-of df "c1" -1 #:exact-match? #t) #f)
+     (check = (df-index-of df "c1" 100) 4)
+     (check equal? (df-index-of df "c1" 100 #:exact-match? #t) #f)
+
+     (check equal? (df-index-of* df "c1" 2 -1 100) '(2 3 4))
+     (check equal? (df-index-of* df "c1" 2 -1 100 #:exact-match? #t) '(2 #f #f)))
+
+   (test-case "df-all-indices-of"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4 2 5 2 6)))
+     (df-add-index! df "i0" "c0" <)
+     ;; Return all the positions where 2 is located
+     (check equal? (df-all-indices-of df "c0" 2) '(1 4 6)))
+
+   (test-case "df-lookup, df-lookup*"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4) #:contract integer? #:cmpfn <))
+     (df-add-series! df (make-series "c1" #:data #(3 2 1 0)))
+
+     (check equal? (df-lookup df "c0" "c1" 3) 1)
+     (check equal? (df-lookup df "c0" '("c0" "c1") 3) #(3 1))
+     (check equal? (df-lookup df "c0" "c1" -1) 3)
+     (check equal? (df-lookup df "c0" "c1" 100) #f)
+     (check equal? (df-lookup df "c0" "c1" 1.5) 2)
+     (check equal? (df-lookup df "c0" "c1" 1.5 #:exact-match? #t) #f)
+
+     (check equal? (df-lookup* df "c0" "c1" 1 4) '(3 0))
+     (check equal? (df-lookup* df "c0" "c1" -1 1 2.5 4 100) '(3 3 1 0 #f))
+     (check equal? (df-lookup* df "c0" "c1" -1 1 2.5 4 100 #:exact-match? #t) '(#f 3 #f 0 #f))
+     (check equal? (df-lookup* df "c0" '("c0" "c1") 1 4) '(#(1 3) #(4 0)))
+
+     ;; Lookup via an multi-column index
+     (df-add-index*! df "i1" '("c1" "c0") (list < <))
+
+     (check equal? (df-lookup df "c1" "c0" 1) 3)
+     (check equal? (df-lookup df "c1" "c0" 1.5) 2)
+     (check equal? (df-lookup df "c1" "c0" 1.5 #:exact-match? #t) #f)
+
+     (check equal? (df-lookup* df "c1" "c0" 1 1.5 3) '(3 2 1))
+     (check equal? (df-lookup* df "c1" "c0" 1 1.5 3 #:exact-match? #t) '(3 #f 1)))
+
+   (test-case "df-lookup/interpolated"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4) #:contract integer? #:cmpfn <))
+     (df-add-series! df (make-series "c1" #:data #(3 2 1 0) #:contract integer? #:cmpfn >))
+
+     (check = (df-lookup/interpolated df "c0" "c1" 0) 3) ; out of range
+     (check = (df-lookup/interpolated df "c0" "c1" 1) 3) ; at the beginning
+     (check = (df-lookup/interpolated df "c0" "c1" 4) 0) ; at the end
+     (check = (df-lookup/interpolated df "c0" "c1" 5) 0) ; out of range
+     (check < (abs (- (df-lookup/interpolated df "c0" "c1" 2.2) 1.8)) 0.001)
+
+     (check equal? (df-lookup/interpolated df "c0" '("c0" "c1") 0) #(1 3)) ; out of range
+     (check equal? (df-lookup/interpolated df "c0" '("c0" "c1") 1) #(1 3)) ; at the beginning
+     (check equal? (df-lookup/interpolated df "c0" '("c0" "c1") 4) #(4 0)) ; at the end
+     (check equal? (df-lookup/interpolated df "c0" '("c0" "c1") 5) #(4 0)) ; out of range
+     (let ((val (df-lookup/interpolated df "c0" '("c0" "c1") 2.2)))
+       (check < (abs (- (vector-ref val 0) 2.2)) 0.001)
+       (check < (abs (- (vector-ref val 1) 1.8)) 0.001)))
+
+   (test-case "df-select, df-select*"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4)))
+     (df-add-series! df (make-series "c1" #:data #(3 2 1 0)))
+
+     (check equal? (df-select df "c0") #(1 2 3 4))
+     (check equal? (df-select df "c0" #:filter odd?) #(1 3))
+     (check equal? (df-select df "c0" #:start 1 #:stop 3) #(2 3))
+     (check equal? (df-select* df "c0" "c1") #(#(1 3) #(2 2) #(3 1) #(4 0)))
+     (check equal? (df-select* df "c0" "c1" #:start 1 #:stop 3) #(#(2 2) #(3 1)))
+     (define result (df-select* df "c0" "c1" #:start 1 #:stop 2
+                                #:filter (lambda (val)
+                                           (check-pred vector? val)
+                                           (check = (vector-length val) 2)
+                                           (match-define (vector c1 c2) val)
+                                           (check = c1 2)
+                                           (check = c2 2)
+                                           #f)))
+     (check-true (and (vector? result) (= (vector-length result) 0))))
+
+   (test-case "df-select/by-index variants"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4)))
+     (df-add-series! df (make-series "c1" #:data #(3 2 1 0)))
+     (df-add-series! df (make-series "c2" #:data #("Omega" "Alpha" "Alpha" "Omega")))
+     (df-add-index*! df "i1" '("c2" "c1") (list string<? <))
+
+     (check equal? (df-select/by-index df "c0" #:index "i1") #(3 2 4 1))
+     (check equal? (df-select/by-index df "c0" #:index "i1" #:from "Omega" #:to "Omega")
+            #(4 1))
+     (check equal? (df-select*/by-index df "c0" "c1" #:index "i1")
+            #(#(3 1) #(2 2) #(4 0) #(1 3)))
+     (check equal? (df-select*/by-index df "c0" "c1" #:index "i1" #:from "Alpha" #:to "Alpha")
+            #(#(3 1) #(2 2)))
+
+     (check equal? (df-select/by-index* df "c0" #:index "i1") #(3 2 4 1))
+     (check equal? (df-select/by-index* df "c0" #:index "i1"
+                                        #:from '("Alpha" 2) #:to '("Omega" 1))
+            #(2 4))
+     (check equal? (df-select*/by-index* df "c0" "c1" #:index "i1")
+            #(#(3 1) #(2 2) #(4 0) #(1 3)))
+     (check equal? (df-select*/by-index* df "c0" "c1" #:index "i1"
+                                         #:from '("Alpha" 2) #:to '("Omega" 1))
+            #(#(2 2) #(4 0))))
+
+   (test-case "df-map variants"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4)))
+     (df-add-series! df (make-series "c1" #:data #(3 2 1 0)))
+     (df-add-series! df (make-series "c2" #:data #(1 2 3 4)))
+     (df-add-index*! df "i1" '("c1" "c2") (list < <))
+
+     (check equal?
+            (df-map df
+                    '("c0" "c1")
+                    (lambda (prev current)
+                      (if prev
+                          ;; A delta series on col1, col2
+                          (match-let (((list pc1 pc2) prev)
+                                      ((list c1 c2) current))
+                            (list (- c1 pc1) (- c2 pc2)))
+                          'none)))
+            #(none (1 -1) (1 -1) (1 -1)))
+
+     (check equal?
+            (df-map df
+                    '("c0" "c1")
+                    (lambda (current)
+                      (match-let (((list c1 c2) current))
+                        (+ c1 c2))))
+            #(4 4 4 4))
+
+     (check equal?
+            (df-map df
+                    '("c0" "c1")
+                    (lambda (prev current)
+                      (if prev
+                          ;; A delta series on col1, col2
+                          (match-let (((list pc1 pc2) prev)
+                                      ((list c1 c2) current))
+                            (list (- c1 pc1) (- c2 pc2)))
+                          'none))
+                    #:start 1 #:stop 3)
+            #(none (1 -1)))
+
+     (check equal?
+            (df-map/by-index
+             df
+             '("c0" "c2")
+             #:index "i1"
+             (lambda (prev current)
+               (if prev
+                   ;; A delta series on col1, col2
+                   (match-let (((list pc1 pc2) prev)
+                               ((list c1 c2) current))
+                     (list (- c1 pc1) (- c2 pc2)))
+                   'none)))
+            #(none (-1 -1) (-1 -1) (-1 -1)))
+     (check equal?
+            (df-map/by-index
+             df
+             '("c0" "c2")
+             #:index "i1"
+             (lambda (current)
+               (match-let (((list c1 c2) current))
+                 (- c1 c2))))
+             #(0 0 0 0))
+     (check equal?
+            (df-map/by-index
+             df
+             '("c0" "c2")
+             #:index "i1" #:from 1 #:to 2
+             (lambda (current)
+               (match-let (((list c1 c2) current))
+                 (+ c1 c2))))
+            #(6 4))
+     (check equal?
+            (df-map/by-index*
+             df
+             '("c0" "c2")
+             #:index "i1"
+             (lambda (current)
+               (match-let (((list c1 c2) current))
+                 (- c1 c2))))
+            #(0 0 0 0))
+     (check equal?
+            (df-map/by-index*
+             df
+             '("c0" "c2")
+             #:index "i1" #:from '(1 3) #:to '(2 2)
+             (lambda (current)
+               (match-let (((list c1 c2) current))
+                 (+ c1 c2))))
+            #(6 4)))
+
+   (test-case "df-for-each variants"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4)))
+     (df-add-series! df (make-series "c1" #:data #(3 2 1 0)))
+     (df-add-series! df (make-series "c2" #:data #(1 2 3 4)))
+     (df-add-index*! df "i1" '("c1" "c2") (list < <))
+
+     (define result1 '())
+     (df-for-each df
+                  '("c0" "c1")
+                  (lambda (prev current)
+                    (define v (if prev
+                                  ;; A delta series on col1, col2
+                                  (match-let (((list pc1 pc2) prev)
+                                              ((list c1 c2) current))
+                                    (list (- c1 pc1) (- c2 pc2)))
+                                  'none))
+                    (set! result1 (cons v result1)))
+                  #:start 1 #:stop 3)
+     (check equal? result1 '((1 -1) none))
+
+     (define result2 '())
+     (df-for-each df
+                  '("c0" "c1")
+                  (lambda (prev current)
+                    (define v (if prev
+                                  ;; A delta series on col1, col2
+                                  (match-let (((list pc1 pc2) prev)
+                                              ((list c1 c2) current))
+                                    (list (- c1 pc1) (- c2 pc2)))
+                                  'none))
+                    (set! result2 (cons v result2))))
+     (check equal? result2 '((1 -1) (1 -1) (1 -1) none))
+
+     (define result3 '())
+     (df-for-each df
+                  '("c0" "c1")
+                  (lambda (current)
+                    (define v (match-let (((list c1 c2) current))
+                                (+ c1 c2)))
+                    (set! result3 (cons v result3))))
+     (check equal? result3 '(4 4 4 4))
+
+     (define result4 '())
+     (df-for-each/by-index
+      df
+      '("c0" "c2")
+      #:index "i1"
+      (lambda (current)
+        (define v (match-let (((list c1 c2) current))
+                    (+ c1 c2)))
+        (set! result4 (cons v result4))))
+     (check equal? result4 '(2 4 6 8))  ; note that result4 is in reverse
+
+     (define result5 '())
+     (df-for-each/by-index
+      df
+      '("c0" "c2")
+      #:index "i1" #:from 2 #:to 3
+      (lambda (current)
+        (define v (match-let (((list c1 c2) current))
+                    (+ c1 c2)))
+        (set! result5 (cons v result5))))
+     (check equal? result5 '(2 4))      ; note that result5 is in reverse
+
+     (define result6 '())
+     (df-for-each/by-index*
+      df
+      '("c0" "c2")
+      #:index "i1" #:from '(2) #:to '(3)
+      (lambda (current)
+        (define v (match-let (((list c1 c2) current))
+                    (+ c1 c2)))
+        (set! result6 (cons v result6))))
+     (check equal? result6 '(2 4))      ; note that result6 is in reverse
+
+     )
+
+   (test-case "df-fold variants"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4)))
+     (df-add-series! df (make-series "c1" #:data #(3 2 1 0)))
+     (df-add-series! df (make-series "c2" #:data #(1 2 3 4)))
+     (df-add-index*! df "i1" '("c1" "c2") (list < <))
+
+     (check equal? (df-fold df
+                            '("c0" "c1") ; series
+                            0            ; initial value
+                            (lambda (accumulator v)
+                              (match-define (list c1 c2) v)
+                              (+ accumulator c1 c2)))
+            16)
+     (check equal? (df-fold df
+                            '("c0" "c1") ; series
+                            0            ; initial value
+                            (lambda (accumulator prev current)
+                              (if prev
+                                  (match-let (((list c1 c2) prev)
+                                              ((list c3 c4) current))
+                                    (+ accumulator c1 c2 c3 c4))
+                                  accumulator)))
+            24)
+     (check equal? (df-fold df
+                            '("c0" "c1") ; series
+                            0                ; initial value
+                            (lambda (accumulator v)
+                              (match-define (list c1 c2) v)
+                              (+ accumulator c1 c2))
+                            #:start 1 #:stop 4)
+            12)
+     (check equal? (df-fold df
+                            '("c0" "c1") ; series
+                            0                ; initial value
+                            (lambda (accumulator prev current)
+                              (if prev
+                                  (match-let (((list c1 c2) prev)
+                                              ((list c3 c4) current))
+                                    (+ accumulator c1 c2 c3 c4))
+                                  accumulator))
+                            #:start 1 #:stop 4)
+            16)
+     (check equal? (df-fold/by-index
+                    df
+                    '("c0" "c2") ; series
+                    0                ; initial value
+                    (lambda (accumulator current)
+                      (match-let (((list c0 c1) current))
+                        (+ accumulator c0 c1)))
+                    #:index "i1" #:from 1 #:to 2)
+            10)
+     (check equal? (df-fold/by-index*
+                    df
+                    '("c0" "c2") ; series
+                    0                ; initial value
+                    (lambda (accumulator current)
+                      (match-let (((list c0 c1) current))
+                        (+ accumulator c0 c1)))
+                    #:index "i1" #:from '(1) #:to '(2))
+            10))
+
+   (test-case "in-data-frame variants"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c0" #:data #(1 2 3 4)))
+     (df-add-series! df (make-series "c1" #:data #(3 2 1 0)))
+     (df-add-index! df "i1" "c1" <)
+
+     (check-equal?
+      (for/list ([(c0 c1) (in-data-frame df "c0" "c1" #:start 1 #:stop 3)])
+        (cons c0 c1))
+      '((2 . 2) (3 . 1)))
+     (check-equal?
+      (for/list ([(c0 c1) (in-data-frame df "c0" "c1")])
+        (cons c0 c1))
+      '((1 . 3) (2 . 2) (3 . 1) (4 . 0)))
+     ;; See if we can select backwards
+     (check-equal?
+      (for/list ([(c0 c1) (in-data-frame df "c0" "c1" #:start 2 #:stop -1)])
+        (cons c0 c1))
+      '((3 . 1) (2 . 2) (1 . 3)))
+
+     (check-equal?
+      (for/list ([item (in-data-frame/as-list df "c0" "c1" #:start 1 #:stop 3)])
+        item)
+      '((2 2) (3 1)))
+     (check-equal?
+      (for/list ([item (in-data-frame/as-list df "c0" "c1")])
+        item)
+      '((1 3) (2 2) (3 1) (4 0)))
+     ;; See if we can select backwards
+     (check-equal?
+      (for/list ([item (in-data-frame/as-list df "c0" "c1" #:start 2 #:stop -1)])
+        item)
+      '((3 1) (2 2) (1 3)))
+
+     (check-equal?
+      (for/list ([item (in-data-frame/as-vector df "c0" "c1" #:start 1 #:stop 3)])
+        item)
+      '(#(2 2) #(3 1)))
+     (check-equal?
+      (for/list ([item (in-data-frame/as-vector df "c0" "c1")])
+        item)
+      '(#(1 3) #(2 2) #(3 1) #(4 0)))
+     ;; See if we can select backwards
+     (check-equal?
+      (for/list ([item (in-data-frame/as-vector df "c0" "c1" #:start 2 #:stop -1)])
+        item)
+      '(#(3 1) #(2 2) #(1 3)))
+
+     (check-equal?
+      (for/list ([(c0 c1) (in-data-frame/by-index df "c0" "c1" #:index "i1")])
+        (cons c0 c1))
+      '((4 . 0) (3 . 1) (2 . 2) (1 . 3)))
+     (check-equal?
+      (for/list ([item (in-data-frame/by-index/as-list df "c0" "c1" #:index "i1")])
+        item)
+      '((4 0) (3 1) (2 2) (1 3)))
+     (check-equal?
+      (for/list ([item (in-data-frame/by-index/as-vector df "c0" "c1" #:index "i1")])
+        item)
+      '(#(4 0) #(3 1) #(2 2) #(1 3)))
+
+     (check-equal?
+      (for/list ([(c0 c1) (in-data-frame/by-index* df "c0" "c1" #:index "i1")])
+        (cons c0 c1))
+      '((4 . 0) (3 . 1) (2 . 2) (1 . 3)))
+     (check-equal?
+      (for/list ([item (in-data-frame/by-index*/as-list df "c0" "c1" #:index "i1")])
+        item)
+      '((4 0) (3 1) (2 2) (1 3)))
+     (check-equal?
+      (for/list ([item (in-data-frame/by-index*/as-vector df "c0" "c1" #:index "i1")])
+        item)
+      '(#(4 0) #(3 1) #(2 2) #(1 3))))
+   ))
 
 (define (with-fresh-database thunk)
   (let ((db (sqlite3-connect #:database 'memory #:mode 'create)))
@@ -797,10 +1204,10 @@
                                      (and (number? v) (even? v)))))))
        (check = (df-count-na df "one") 4)
        (check = (df-count-na df "two") 2)))
-   
+
    (test-case "df-write/csv: other"
      (define df (make-data-frame))
-     
+
      (define s1 (make-series "s,1" #:data #(1 1/2 3 #f 5) #:na #f))
      (define s2 (make-series "s,2" #:data #("one" "two" "th\"ree" #f "") #:na ""))
      (df-add-series! df s1)
@@ -823,7 +1230,7 @@
       (lambda ()
         (call-with-input-string text (lambda (in) (df-read/csv in))))))
 
-     
+
 
    (test-case "df-read/csv: duplicate header names"
      (define df (df-read/csv sample4-csv))
@@ -833,7 +1240,7 @@
      (check equal? (df-select df "one (2)") #(3 3))
      (check equal? (df-select df "one (3)") #(4 4)))))
 
-   
+
 
 
 (define gpx-tests
@@ -847,7 +1254,7 @@
      (define df (df-read/gpx sample-gpx-file))
      (check-true (df-contains? df "lat" "lon" "alt" "dst" "timestamp"))
      (check > (df-row-count df) 0))
-   
+
    (test-case "df-read+write/gpx: other"
 
      (define df-1136 (df-read/csv sample-1136-file))
@@ -875,7 +1282,7 @@
       (lambda ()
         (call-with-input-string str (lambda (in) (df-read/gpx in))))))))
 
-     
+
 
 (define tcx-tests
   (test-suite
@@ -899,7 +1306,7 @@
      (check-true (> (df-row-count df) 0))
      (check-true (list? (df-get-property df 'laps)))
      (check-true (> (length (df-get-property df 'laps)))))))
-  
+
 
 (define stats+mmax-tests
   (test-suite
@@ -942,10 +1349,10 @@
       (lambda()
         (define mmax (df-mean-max df "spd"))
         (check > (length mmax) 0))))))       ; need a better test
-        
 
 
-     
+
+
 
 (define histogram-tests
   (test-suite
@@ -977,7 +1384,7 @@
        (let ((n (for/sum ([item (in-vector h)]) (vector-ref item 1))))
          (check = n (df-row-count df-1136)))))))
 
-     
+
 
 
 (define rdp-simplify-tests
@@ -1003,7 +1410,7 @@
      (check = (vector-length result) 2)
      (check equal? (vector-ref result 0) (vector 0 1))
      (check equal? (vector-ref result 1) (vector 0 2)))
-     
+
    (test-case "rdp-simplify: other"
 
      ;; NOTE: it would be nice if we could test that rdp-simplify actually did
@@ -1026,7 +1433,7 @@
                                   (list test-point
                                         (sub1 nitems) ; last one
                                         (+ nitems 5)))) ; out of range
-                                        
+
      ;; The test-point and the one that follows were kept in the output set...
      (check-pred exact-nonnegative-integer?
                  (vector-memq (vector-ref data test-point) data-5))
@@ -1038,7 +1445,7 @@
      ;; data now contains #f values, as it was destroyed
      (check > (for/sum ([d (in-vector data)] #:when (eq? #f d)) 1) 0))))
 
-     
+
 
 (define scatter-tests
   (test-suite
@@ -1076,7 +1483,7 @@
        (check = (- ts x) timestamp)
        (check = (- y x) (- shift-amount))))))
 
-     
+
 
 ;;.................................................... least-squares-fit ....
 
@@ -1196,7 +1603,7 @@
      ;;                  #:annealing-iterations 1000))
      ;; (check-modified-residuals fit-pow df "base2" "pow")
 
-     
+
 
 (define slr-tests
   (test-suite
@@ -1262,6 +1669,7 @@
              #:results-file "test-results-data-frame.xml"
              lower+upper-bound-tests
              series-tests
+             sx-tests
              spline-tests
              df-tests
              dfdb-tests

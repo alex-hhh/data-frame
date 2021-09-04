@@ -14,83 +14,58 @@
      eval))
 
 @title{data-frame}
-@author{Alex Harsanyi}
+@author{Alex Harsányi}
 
 @defmodule[data-frame]
 
-A data frame is a data structure used to hold data in tables with rows
-and columns.  It is meant for conveninent access and manipulation of
-relatively large data sets (however these data sets must fit into the
-process memory).  The package also provides functions for loading and
-saving data from data frames as well as several utilities and helper
-for statistical calculations, plotting and curve fitting.
+A data frame is a data structure used to hold data in tables with rows and
+columns.  It is meant for conveninent access and manipulation of relatively
+large data sets that fit in the process memory.  The package also provides
+functions for loading and saving data from data frames from various formats,
+as well as several utilities and helper functions for statistical
+calculations, plotting and curve fitting.
 
-@section{Rationale}
+The package was initially written to support data the data processing needs
+for @hyperlink["https://github.com/alex-hhh/ActivityLog2"]{ActivityLog2}, and
+since that application mostly deals with time series based data, the package
+supports data which is naturally ordered (whether by a timestamp or some other
+data column).  However, the package does support more general data which is
+not necessarily ordered and also supports efficient lookups using secondary
+indexes, allowing multiple traversal orders to be defined for the data.
 
-Consider an example: during a sport activity, a sport watch will
-record data at periodic intervals, usually once every second. The data
-recorded might be time stamp, latitude, longitude, heart rate,
-distance, speed, cadence, power, etc.  A high end sports watch will
-record up to 40 such measurements every second.
-
-A simple approach for representing this data is to define a
-"DataPoint" structure, containing members for each possible values and
-represent the entire activity as a vector of data points.  This
-approach has several problems:
-
-@itemlist[
-
-@item{If a structure is used, it will need to have up to 40 or so
-members, but most of the time they would be empty, wasting memory.
-Since we never know what data might be collected (this depends on the
-number and types of sensors that are active), we cannot save much by
-defining sub-types, like a RunDataPoint or a BikeDataPoint}
-
-@item{Operations on the data is done for one or only a few
-measurements at the time.  For example, to find the average heart
-rate, one needs to traverse all the data points and look a the "hr"
-member of such a structure, if the structure is big, every reference
-to the "hr" member will be a memory cache miss.}
-
-]
-
-A data frame object addresses the problems above by storing
-measurements for the same parameter together.  Essentially, all heart
-rate measurements are stored together in a vector, all cadence
-measurements are stored together in a different vectors.  All these
-vectors have the same number of elements (the number of data points)
-and the same position in each such vector represents data at a certain
-point in time.  This data organization has some advantages:
-
-@itemlist[
-
-@item{Memory is only used for data that actually exists.  For example,
-if no power data is recorded, there will be no power data series in
-the data frame.}
-
-@item{Operations on the data have efficient memory access.
-Calculating the average heart rate involves just referencing elements
-in a continuous vector.}
-
-]
+With data science a popular topic, a package named @racket[data-frame]
+inevitably brings the question of how does it compare with other
+implementations with similar names and descriptions.  The package author does
+not know the answer to that question, except to say that any resemblance to
+other implementatins is purely coincidental.
 
 @section{Creating data frames}
 
-The functions below allow constructing new data frames.  They are
-mainly intended for writing functions that load data into data frames
-from different sources.
+The functions below allow constructing new data frames.  They are mainly
+intended for writing functions that load data into data frames from different
+sources, rather for direct use in other programs.  To load data into data
+frames, see @racket[df-read/csv] or @racket[df-read/sql] and for manually
+creating data frames, @racket[for/data-frame].
 
 @defproc[(data-frame? (df any/c)) boolean?]{
 
-Return @racket[#t] if @racket[df] is a data frame}
+  Return @racket[#t] if @racket[df] is a data frame.
+
+}
 
 @defproc[(series? (series any/c)) boolean?]{
 
-Return @racket[#t] if @racket[series] is a data series}
+  Return @racket[#t] if @racket[series] is a data series
+
+}
 
 @defproc[(make-data-frame) data-frame?]{
 
-Return a new empty data frame}
+  Return a new, empty, data frame.  The data frame does not contain any
+  series, and its size will be determined by the first series added, see also
+  @racket[df-add-series!].
+
+}
 
 @defproc[(make-series (name string?)
                       (#:data data vector?)
@@ -98,100 +73,151 @@ Return a new empty data frame}
                       (#:na na any/c)
                       (#:contract contractfn (-> any/c boolean?)))
                       series?]{
-                      
-Create a new data series named @racket[name] with contents from
-@racket[data].
 
-@racket[cmpfn] specifies an ordering function to use.  If present,
-values can be looked up in this series using @racket[df-index-of] and
-@racket[df-lookup].  The data must be ordered according to this
-function
+  Create a new data series named @racket[name] with contents from
+  @racket[data].
 
-@racket[na] specifies the "not available" value for this series, by
-default it is @racket[#f]
+  @racket[cmpfn] specifies an ordering function to use.  If present, values
+  can be looked up in this series using @racket[df-index-of] and
+  @racket[df-lookup].  The data must be ordered according to this function
 
-@racket[contractfn] is a contract function.  If present, all values in
-the data series, except NA values must satisfy this contract.
+  @racket[na] specifies the "not available" value for this series, by default
+  it is @racket[#f].
+
+  @racket[contractfn] is a contract function.  If present, all values in the
+  data series, except NA values, must satisfy this contract, that is, the
+  function must return @racket[#t] for all values in the series.
 
 }
 
 @defproc[(df-add-series! (df data-frame?) (series series?)) any/c]{
-Add a new series to the data frame.  If the data frame is empty, the
-series can have any number of elements, otherwise it must have the
-same number of elements as the other series in the data frame.  See
-also @racket[df-row-count], @racket[make-series]}
 
-@defproc[(df-del-series! (df data-frame?) (name string?)) any/c]{
-Remove the series named @racket[name] from the data frame @racket[df]}
+  Add a new series to the data frame.  If the data frame contains no other
+  series, this series can have any number of elements, otherwise it must have
+  the same number of elements as the other series in the data frame.
 
-@defproc[(df-add-derived! (df data-frame?) (name string?) (base-series
-           (listof string?)) (value-fn mapfn/c)) any/c]{
-Add a new series named @racket[name] to the data frame @racket[df]
-with values that are computed from existing series.  The data for the
-series is created using @racket[df-map] by applying @racket[value-fn]
-on @racket[base-series] and the resulting data is added to the data
-frame.  See @racket[df-map] for notes on the @racket[value-fn].
+  If the data frame already contains a series with the same name, that series
+  will be replaced.
 
-If a series named @racket[name] already exists in the data frame, it
-will be replaced.
+  See also @racket[df-row-count] and @racket[make-series].
 
 }
 
-@defproc[(df-add-lazy! (df data-frame?) (name string?) (base-series
-           (listof string?)) (value-fn mapfn/c)) any/c]{
+@defproc[(df-del-series! (df data-frame?) (name string?)) any/c]{
 
-Add a new series to the data frame, but delay creating it until it is
-referenced.  This function allows adding many series to a data frame,
-with the expectation that the cost to create those series is paid when
-(and if) they are used.  See @racket[df-add-derived!] for the parameter
-names.
+  Remove the series named @racket[name] from the data frame @racket[df].  Does
+  nothing if the series does not exist.
+
+}
+
+@defproc[(df-add-derived! (df data-frame?) (name string?) (base-series (listof string?)) (value-fn mapfn/c)) any/c]{
+
+  Add a new series named @racket[name] to the data frame @racket[df] with
+  values that are computed from existing series.  The data for the series is
+  created using @racket[df-map] by applying @racket[value-fn] on
+  @racket[base-series] and the resulting data is added to the data frame.  See
+  @racket[df-map] for notes on the @racket[value-fn].
+
+  If a series named @racket[name] already exists in the data frame, it will be
+  replaced.
+
+}
+
+@defproc[(df-add-lazy! (df data-frame?) (name string?) (base-series (listof string?)) (value-fn mapfn/c)) any/c]{
+
+  Add a new series to the data frame, same as @racket[df-add-derived!], but
+  delay creating it until it is referenced.  This function allows adding many
+  series to a data frame, with the expectation that the cost to create those
+  series is paid when (and if) they are used.
+
+  See @racket[df-add-derived!] for the parameter names.
+
+}
+
+@defproc[(df-row-count (df data-frame?)) exact-nonnegative-integer?]{
+
+  Return the number of rows in the data frame @racket[df].  All series inside
+  the data frame have the same number of rows.
+
+}
+
+@defproc[(df-series-names (df data-frame?)) (listof string?)]{
+
+  Return a list of the names of all series in the data frame @racket[df].  The
+  names are returned in an unspecified order.
+
+}
+
+@deftogether[(@defproc[(df-contains? (df (data-frame?)) (series string?) ...) boolean?]
+             @defproc[(df-contains/any? (df (data-frame?)) (series string?) ...) boolean?])]{
+
+  Return @racket[#t] if the data frame @racket[df] the @racket[series]
+  specified as arguments.  @racket[df-contains?] returns @racket[#t] only if
+  @bold{all} the series are present, while @racket[df-contains/any?] returns
+  @racket[#t] if @bold{any} of the specified series are present.
 
 }
 
 @defproc[(df-duplicate-series (df data-frame?) (name string?)) series?]{
-Duplicates the series with name @racket[name] in the data-frame
-@racket[df]. The resulting copy will not impact the original.
 
-If the series with name @racket[name] is delayed
-(see @racket[df-add-lazy!]), this will force it.
-}
+  Return a new series by coping the series @racket[name] from the data-frame
+  @racket[df]. All data and properties (like sort order, NA value and
+  contract) are copied.  New series is intended to be added to another data
+  frame using @racket[df-add-series!].
 
-@defproc[(df-set-sorted! (df data-frame?) (name string?) (cmpfn (or/c
-           #f (-> any/c any/c boolean?)))) any/c]{
-
-Mark the series @racket[name] inside the data frame @racket[df] as
-sorted according to @racket[cmpfn].  This does not actually sort the
-data series, it just tells the data frame that the series can be used
-for index lookup by @racket[df-index-of] and @racket[df-lookup].  An
-error is raised if the series is not actually sorted or if it contains
-NA values.
+  If the series with name @racket[name] is delayed, see
+  @racket[df-add-lazy!], the series will be materialized first.
 
 }
 
-@defproc[(df-set-contract! (df data-frame?) (name string?) (contractfn
-           (or/c #f (-> any/c boolean?)))) any/c]{
+@defproc[(df-set-sorted! (df data-frame?) (name string?) (cmpfn (or/c #f (-> any/c any/c boolean?)))) any/c]{
 
-Set the contract for values in the data frame @racket[df] series
-@racket[name] to @racket[contractfn].  An exception is thrown if not
-all values in the series match @racket[contractfn] or are NA.  The
-@racket[contractfn] need not return @racket[#t] for the NA value.
+  Mark an already sorted series @racket[name] in the data frame @racket[df] as
+  sorted according to @racket[cmpfn].  Marking a series as sorted, allows it
+  to be used for index lookup by @racket[df-index-of] and @racket[df-lookup].
+  An error is raised if the series is not actually sorted or if it contains NA
+  values.
+
+  If the data in the series is not already sorted, and you want to lookup
+  values using @racket[df-index-of] or @racket[df-lookup], consider adding a
+  secondary index using @racket[df-add-index!].
+
+}
+
+@defproc[(df-is-sorted? (df data-frame?) (series string?)) boolean?]{
+
+  Return @racket[#t] if the given @racket[series] in the data-frame
+  @racket[df] is sorted, that is @racket[df-set-sorted!] has been called and
+  succeeded for this series.
+
+}
+
+@defproc[(df-set-contract! (df data-frame?) (name string?) (contractfn (or/c #f (-> any/c boolean?)))) any/c]{
+
+  Set the contract for values in the data frame @racket[df] series
+  @racket[name] to @racket[contractfn].  An exception is thrown if not all
+  values in the series match @racket[contractfn] or are NA.  The
+  @racket[contractfn] need not return @racket[#t] for the NA value.
 
 }
 
 @defproc[(df-shallow-copy [df data-frame?]) data-frame]{
-  Creates a copy of @racket[df]. The returned copy will reference the
-  same data series objects as the original (and the properties), but any
-  add/delete operations, for both series and properties, will only affect
-  the copy.
+
+  Creates a copy of @racket[df]. The returned copy will reference the same
+  data series objects as the original (and the properties), but any add/delete
+  operations, for both series and properties, will only affect the copy,
+  however operations on the shared series (like setting a contract) will
+  affect both data frames.
+
 }
 
-@defform[(for/data-frame (series-name ...) (for-clause ...) body-or-break ... body)]{
-Constructs a new data-frame with the given @racket[series-name]s,
-row-by-row.
+@deftogether[(@defform[(for/data-frame (series-name ...) (for-clause ...) body-or-break ... body)]
+             @defform[(for*/data-frame (series-name ...) (for-clause ...) body-or-break ... body)])]{
 
-Iterates like @racket[for], but each @racket[body] must evaluate to
-a set of values that corresponds to each @racket[series-name], in order.
-Each iteration must have the same contract.
+  Construct a new data-frame with the given @racket[series-name]s, by
+  producing values in the for loop, row by row.  The constructs iterate like
+  @racket[for] or @racket[for*], and each @racket[body] must evaluate to a set
+  of values that corresponds to each @racket[series-name], in order.
 
 @examples[#:eval ev
   (define df
@@ -202,10 +228,6 @@ Each iteration must have the same contract.
   (df-select df "ints")
   (df-select df "strs")
 ]
-}
-
-@defform[(for*/data-frame (series-name ...) (for-clause ...) body-or-break ... body)]{
-Like @racket[for/data-frame], but iterates like @racket[for*].
 
 @examples[#:eval ev
   (define df
@@ -216,32 +238,20 @@ Like @racket[for/data-frame], but iterates like @racket[for*].
   (df-select df "ints")
   (df-select df "strs")
 ]
-}
-
-@section{Loading data into data-frames and saving it out again}
-
-The functions construct data frames by loading data from different
-sources.
-
-
-@defproc[(df-read/sql (db connection?)
-                      (query (or/c string? virtual-statement?))
-                      (param any/c) ...)
-                      data-frame?]{
-
-Create a data frame from the result of running @racket[query] on the
-database @racket[db] with the supplied list of parameters.  Each
-column from the result set will become a series in the data frame,
-@racket[sql-null] values will be converted to @racket[#f].
 
 }
+
+@section{Loading and Saving Data}
+
+The functions construct data frames by loading data from CSV files or by
+running an SQL query.
 
 @defproc[(df-read/csv (input (or/c path-string? input-port?))
                       (#:headers? headers? boolean? #t)
                       (#:na na (or/c string? (-> string? boolean?) ""))
                       (#:quoted-numbers? quoted-numbers? boolean? #f))
                       data-frame?]{
-  
+
   Read CSV data in a data frame from the @racket[input] which is either a port
   or a string, in which case it is assumed to be a file name.  If
   @racket[headers?]  is true, the first row in @racket[input] becomes the
@@ -271,59 +281,57 @@ column from the result set will become a series in the data frame,
                        (series string?) ...)
                        any/c]{
 
-Write the data frame @racket[df] to @racket[output] which is either an
-output port or a string, in which case it is assumed to be a file
-name.  The series to be written out can be specified as the
-@racket[series] list.  If no @racket[series] are specified, all series
-in the data frame are written out as columns in an unspecified order.
+  Write the data frame @racket[df] to @racket[output] which is either an
+  output port or a string, in which case it is assumed to be a file name.  The
+  series to be written out can be specified as the @racket[series] list.  If
+  no @racket[series] are specified, all series in the data frame are written
+  out as columns in an unspecified order.
 
-@racket[start] and @racket[stop] denote the beginning and end rows to
-be written out, by default all rows are written out.
+  @racket[start] and @racket[stop] denote the beginning and end rows to be
+  written out, by default all rows are written out.
 
 }
 
-@section{Inspecting and extracting data}
+@defproc[(df-read/sql (db connection?)
+                      (query (or/c string? virtual-statement?))
+                      (param any/c) ...)
+                      data-frame?]{
+
+  Create a data frame from the result of running @racket[query] on the
+  database @racket[db] with the supplied list of parameters.  Each column from
+  the result set will become a series in the data frame, @racket[sql-null]
+  values will be converted to @racket[#f].
+
+}
+
+@section{Inspecting data series}
 
 @defproc[(df-describe (df data-frame?)) any/c]{
 
-Print to the @racket[current-output-port] a nice description of
-@racket[df], This is useful in interactive mode.
+  Print a nice description of @racket[df] to the @racket[current-output-port].
+  This function is useful in interactive mode to quickly check the series and
+  properties available in a data frame.
 
 }
 
-@defproc[(df-series-names (df data-frame?)) (listof string?)]{
+@section{Working With Properties}
 
-Return the series names in the data frame @racket[df], as a list of
-strings.  The names are returned in an unspecified order.
-
-}
+A data frame can have arbitrary data attached to it the form of key-value
+pairs, where the keys are symbols.  This is usefull for attaching additional
+meta-data to data frames.  The functions allow working with properties.
 
 @defproc[(df-property-names (df data-frame?)) (listof symbol?)]{
 
-Return the property names in the data frame @racket[df], as a list of
-symbols.  The names are returned in an unspecified order.
-
-}
-
-@defproc[(df-contains? (df (data-frame?)) (series string?) ...) boolean?]{
-
-Return #t if the data frame @racket[df] contains all the
-@racket[series] specified as arguments.
-
-}
-
-@defproc[(df-contains/any? (df (data-frame?)) (series string?) ...) boolean?]{
-
-Return #t if the data frame @racket[df] contains at least one of the
-@racket[series] specified as arguments.
+  Return the property names in the data frame @racket[df], as a list of
+  symbols.  The names are returned in an unspecified order.
 
 }
 
 @defproc[(df-put-property! (df data-frame?) (key symbol?) (value any/c)) any/c]{
 
-Set the property @racket[key] to @racket[value] inside the data frame
-@racket[df].  If there is already a value for the property
-@racket[key], it is replaced.
+  Set the property @racket[key] to @racket[value] inside the data frame
+  @racket[df].  If there is already a value for the property @racket[key], it
+  is replaced.
 
 }
 
@@ -332,10 +340,9 @@ Set the property @racket[key] to @racket[value] inside the data frame
                           (default any/c (lambda () #f)))
                           any/c]{
 
-Return the value for the property @racket[key] in the data frame
-@racket[df].  If there is no value for @racket[key], the
-@racket[default] function is called to return a value (the default
-just returns @racket[#f])
+  Return the value for the property @racket[key] in the data frame
+  @racket[df].  If there is no value for @racket[key], the @racket[default]
+  function is called to return a value (the default just returns @racket[#f])
 
 }
 
@@ -343,161 +350,186 @@ just returns @racket[#f])
                            (key symbol?))
                            any/c]{
 
-Delete the value for the property @racket[key] from the data frame
-@racket[df].  Does nothing if there is no value for the property
-@racket[key].
+  Delete the value for the property @racket[key] from the data frame
+  @racket[df].  Does nothing if there is no value for the property
+  @racket[key].
 
 }
 
-@defproc[(df-row-count (df data-frame?)) exact-nonnegative-integer?]{
+@section{NA Values}
 
-Return the number of rows in the data frame @racket[df].  All series
-inside the data frame have the same number of rows.
+Data series support the concept that a value "not available".  This is done
+using a special value, usually @racket[#t], but separate for each data series.
+The functions below allow working with ``NA'' values.  The NA value is
+specified when the series is created using @racket[make-series].
 
-}
+@defproc[(df-count-na (df data-frame?) (series string?)) exact-nonnegative-integer?]{
 
-@defproc[(df-select (df data-frame?)
-                    (series string?)
-                    (#:filter filter (or/c #f (-> any/c any/c)) #f)
-                    (#:start start index/c 0)
-                    (#:stop stop index/c (df-row-count df)))
-                    vector?]{
-
-Return a vector with the values in the series @racket[series] from the
-data frame @racket[df].
-
-@racket[start] and @racket[stop] indicate the first and
-one-before-last row to be selected. @racket[filter], when present,
-will filter values selected: only values for which the function
-returns @racket[#t] will be added to the resulting vector.
-
-If there is no @racket[filter] specified, the resulting vector will
-have @racket[(- stop start)] elements.  If there is a filter, the
-number of elements depends on how many are filtered out by this
-function.
+  Return the number of ``NA'' values in the @racket[series].
 
 }
 
-@defproc[(df-select* (df data-frame?)
-                     (#:filter filter (or/c #f (-> any/c any/c)))
-                     (#:start start index/c 0)
-                     (#:stop stop index/c (df-row-count df))
-                     (series string?) ...) vector?]{
+@defproc[(df-is-na? (df data-frame?) (series string?) (value any/c)) boolean?]{
 
-Return a vector containing elements from the @racket[series] of the
-data frame @racket[df].  Each element in the result is a vector
-containing values from @racket[series] at the corresponding row.
-
-@racket[start] and @racket[stop] indicate the first and
-one-before-last row to be selected. @racket[filter], when present,
-will filter values selected: only values for which the function
-returns @racket[#t] will be added to the resulting vector.
-
-If there is no @racket[filter] specified, the resulting vector will
-have @racket[(- stop start)] elements.  If there is a filter, the
-number of elements depends on how many are filtered out by this
-function.
+  Return @racket[#t] if @racket[value] is @racket[equal?] to the ``NA'' value
+  in the @racket[series].  Each series in a data frame can have a different
+  ``Not available'' value, but this value usually defaults to @racket[#f]
 
 }
 
-@defproc[(in-data-frame (df data-frame?)
-                        (#:start start index/c 0)
-                        (#:stop stop index/c (df-row-count df))
-                        (series string?) ...)
-                        sequence?]{
+@defproc[(df-has-na? (df data-frame?) (series string?)) boolean?]{
 
-Return a sequence that produces values from a list of @racket[series]
-between @racket[start] and @racket[stop] rows.  The sequence produces
-values, each one corresponding to one of the @racket[series].
-
-This is intended to be used in @racket[for] and related constructs to
-iterate over elements in the data frame:
-
-@racketblock[
-(for (([lat lon] (in-data-frame df "lat" "lon")))
-  (printf "lat = ~a, lon = ~a~%" lat lon))]
+  Return @racket[#t] if @racket[series] has any ``NA'' values.
 
 }
 
-@defproc[(in-data-frame/list (df data-frame?)
-                             (#:start start index/c 0)
-                             (#:stop stop index/c (df-row-count df))
-                             (series string?) ...)
-                             sequence?]{
+@defproc[(df-has-non-na? (df data-frame?) (series string?)) boolean?]{
 
-Like @racket[in-data-frame], except the sequence produce a single
-value, which is a list with all the values from the selected
-@racket[series]:
-
-@racketblock[
-(for ((coord (in-data-frame/list df "lat" "lon")))
-   (match-define (list lat lon) coord)
-   (printf "lat = ~a, lon = ~a~%" lat lon))]
+  Return @racket[#t] if @racket[series] has any values outside the ``NA''
+  values.
 
 }
 
-@defproc[(df-is-sorted? (df data-frame?) (series string?)) boolean?]{
-Determines if the given series @racket[series] in the data-frame @racket[df]
-is sorted (i.e. @racket[df-set-sorted!] has been called and succeeded for this
-series).
+@defproc[(df-na-value (df data-frame?) (series string?)) any/c]{
+
+  Return the ``NA'' value for the @racket[series] in the data frame
+  @racket[df].
+
 }
 
-@deftogether[(                        
-@defproc[(df-index-of (df data-frame?) (series string?) (value any/c)) index/c]
-@defproc[(df-index-of* (df data-frame?) (series string?) (value any/c) ...) (listof index/c)])]{
+@section{Get and Set Individual Values}
 
-Find the position of a @racket[value] or list of values in a
-@racket[series] of the data frame @racket[df].  Returns either a
-single value or a list of values.
+@deftogether[(
+@defproc[(df-ref (df data-frame?) (position index/c) (series string?)) any/c]
+@defproc[(df-ref* (df data-frame?) (position index/c) (series string?) ...) vector?])]{
 
-The series must be sorted, see @racket[df-set-sorted!], otherwise the
-calls will raise an error.
+  Return the value at @racket[position] for @racket[series] in the data frame
+  @racket[df].  The second form allows referencing values from multiple
+  series, and a vector containing the values is returned in this case.
 
-The @racket[value] need not be present in the @racket[series], in that
-case, the returned index is the position of the first element which
-comes after the @racket[value], according to the sort function.  This
-is the position where @racket[value] could be inserted and still keep
-the series sorted.  A value of 0 is returned if @racket[value] is less
-or equal than the first value of the series and a value of
-@racket[(df-row-count df)] is returned if the value is greater than
-all the values in @racket[series].
+}
+
+@defproc[(df-set! (df data-frame?) (position index/c) (value any/c) (series string?)) any/c]{
+
+  Update the value at @racket[position] in the @racket[series] to
+  @racket[value].  The new value must keep the series sorted, if the series is
+  sorted, and match the series contract, if a contract has been set for the
+  series.
+
+}
+
+@section{Indexing And Row Lookup}
+
+@deftogether[(@defproc[(df-add-index! (df data-frame?) (name string?) (series string?) (lt (-> any/c any/c boolean?)) (#:na-in-front? na-in-front? boolean? #f)) any/c]
+             @defproc[(df-add-index*! (df data-frame?) (name string?) (series (listof string?)) (lt (listof (-> any/c any/c boolean?))) (#:na-in-front? na-in-front? boolean? #f)) any/c])]{
+
+  Add a secondary index to the data frame @racket[df] named @racket[name] --
+  if an index by that name already exists, it will be replaced.  A secondary
+  index will allow fast lookups (see @racket[df-index-of] and
+  @racket[df-lookup]) and iteration (see @racket[in-data-frame/by-index]) in
+  the order defined by the ordering function.  Multiple indexes can be defined
+  for a data frame for one or more columns and they will be used as needed.
+
+  @racket[df-add-index!] will create an index on a single @racket[series] and
+  use the @racket[lt] function for comparing elements, this function must
+  provide a strict less-than ordering, and suitable values would be @racket[<]
+  for numbers and @racket[string<?] for strings, although any function can be
+  defined.
+
+  The @racket[na-in-front?] determines where the ``NA'' values in the series
+  are placed.  If it is @racket[#t], they are placed before all other values,
+  otherwise they are placed at the end.
+
+  The @racket[df-add-index*!] will define a multi-column index on all the
+  @racket[series] specified as a list, the @racket[lt] parameter fot this
+  function is a list of comparison functions, one for each columns. Such an
+  index will sort by the first column, than, for all equal values in the first
+  column, it will sort on the second column, and so on.
+
+  A multi-column index is mosty used for defining a multi-column iteration
+  order, however, such an index can still be used for fast lookup for elements
+  in the first indexed series.
+
+}
+
+@defproc[(df-del-index! (df data-frame?) (name string?)) any/c]{
+
+  Delete the index named @racket[name] from the data frame @racket[df]. Does
+  nothing if an index by this name does not exist.
+
+}
+
+@defproc[(df-index-names (df data-frame?)) (listof string?)]{
+
+  Return the list of index names defined for the data frame @racket[df].  The
+  order of the index names is undedined.
+
+}
+
+@defproc[(df-index-series (df data-frame?) (name string?)) (listof string?)]{
+
+  Return the list of series names indexed by the index @racket[name] in the
+  data frame @racket[df].  The series names is returned in the order in which
+  they are indexed.
+
+}
+
+@deftogether[(
+@defproc[(df-index-of (df data-frame?) (series string?) (value any/c) (#:exact-match? exact-match? #f)) index/c]
+@defproc[(df-index-of* (df data-frame?) (series string?) (#:exact-match? exact-match? #f) (value any/c) ...) (listof index/c)])]{
+
+  Find the position of a @racket[value] or list of values in a @racket[series]
+  of the data frame @racket[df].  Returns either a single value or a list of
+  values.
+
+  The series must either be sorted, see @racket[df-set-sorted!], or an index
+  must be defined for it, see @racket[df-add-index!] and
+  @racket[df-add-index*!], otherwise the calls will raise an error.
+
+  @racket[exact-match?] defines what to do when the value(s) are not found in
+  the data series.  If it is @racket[#t] and the value is not found, the
+  functions return @racket[#f].
+
+  If @racket[exact-match?] is @racket[#f], the @racket[value] need not be
+  present in the @racket[series], in that case, the returned index is the
+  position of the first element which comes after the @racket[value],
+  according to the sort function.  This is the position where @racket[value]
+  could be inserted and still keep the series sorted.  A value of 0 is
+  returned if @racket[value] is less or equal than the first value of the
+  series and a value of @racket[(df-row-count df)] is returned if the value is
+  greater than all the values in @racket[series].
 
 }
 
 @defproc[(df-equal-range (df data-frame?) (series string?) (value any/c))
          (values index/c index/c)]{
-Finds the lower bound of appearance (inclusive) and upper bound of appearance
-(exclusive) of @racket[value], and return them respectively, in the data frame
-@racket[df]. This is useful for when a given series has multiple elements, and
-you want to find all of their occurrences. As the given series must be sorted,
-this is a range, and not a collection of indices.
 
-The series must be sorted (see @racket[df-set-sorted!]), or else this will
-error.
+  Finds the lower bound of appearance (inclusive) and upper bound of
+  appearance (exclusive) of @racket[value], and return them respectively, in
+  the data frame @racket[df]. This is useful for when a given series has
+  multiple elements, and you want to find all of their occurrences. As the
+  given series must be sorted, this is a range, and not a collection of
+  indices.
 
-The given @racket[value] need not be present in the @racket[series]. If this is
-the case, the lower bound is the position of the first element which comes before
-@racket[value], according to the sort function, and the upper bound is the first
-element which comes after @racket[value]. This is the range in which the given
-value could be inserted and keep the series sorted.
+  The series must be sorted (see @racket[df-set-sorted!]), or else this will
+  error.
+
+  The given @racket[value] need not be present in the @racket[series]. If this
+  is the case, the lower bound and upper bound are the same and represent the
+  position of the first element which comes before @racket[value], according
+  to the sort function. This is the position in which the given value could be
+  inserted and keep the series sorted.
 }
 
-@deftogether[(
-@defproc[(df-ref (df data-frame?) (index index/c) (series string?)) any/c]
-@defproc[(df-ref* (df data-frame?) (index index/c) (series string?) ...) vector?])]{
+@defproc[(df-all-indices-of (df data-frame?) (series string?) (value any/c)) (listof index/c)]{
 
-Return the value at @racket[index] for @racket[series] in the data
-frame @racket[df].  The second form allows referencing values from
-multiple series, and a vector containing the values is returned in
-this case.
+  Return the list of positions where @racket[value] is found in the
+  @racket[series] of the data frame @racket[df].  Returns an empty list if
+  @racket[value] does not exist.
 
-}
-
-@defproc[(df-set! (df data-frame?) (index index/c) (value any/c) (series string?)) any/c]{
-
-Update the value at @racket[index] in the @racket[series] to
-@racket[value].  The new value must keep the series sorted (if the
-series is sorted) and match the series contract, if any.
+  The series must be either sorted, see @racket[df-set-sorted!], or have an
+  index defined for it, see @racket[df-add-index!] and
+  @racket[df-add-index*!], otherwise an error is reported.
 
 }
 
@@ -505,27 +537,32 @@ series is sorted) and match the series contract, if any.
 @defproc[(df-lookup (df data-frame?)
                     (base-series string?)
                     (series (or/c string? (listof string?)))
-                    (value any/c))
+                    (value any/c)
+                    (#:exact-match? exact-match? #f))
                     any/c]
 @defproc[(df-lookup* (df data-frame?)
                      (base-series string?)
                      (series (or/c string? (listof string?)))
+                     (#:exact-match? exact-match? #f)
                      (value any/c) ...)
                      list?])]{
 
-Lookup the index for @racket[value] in @racket[base-series] and return
-the corresponding value in @racket[series].  if @racket[series] is a
-single string, a single value is returned, if it is a list of names, a
-list of values is returned.
+  Lookup the index for @racket[value] in @racket[base-series] and return the
+  corresponding value in @racket[series].  if @racket[series] is a single
+  string, a single value is returned, if it is a list of names, a list of
+  values is returned.
 
-@racket[df-lookup*] allows looking up multiple values and will return
-a list of the corresponding values.
+  @racket[df-lookup*] allows looking up multiple values and will return a list
+  of the corresponding values.
 
-These functions combine @racket[df-index-of] and @racket[df-ref] into
-a single function.
+  These functions combine @racket[df-index-of] and @racket[df-ref] into a
+  single function and has the same restrictions as @racket[df-index-of]: the
+  series must either be sorted or an index defined for it.
+
+  @racket[exact-match?] has the same meaning as for @racket[df-index-of]
 
 }
- 
+
 @defproc[(df-lookup/interpolated (df data-frame?)
                                 (base-series string?)
                                 (series (or/c string? (listof string?)))
@@ -534,106 +571,320 @@ a single function.
                                    (lambda (t v1 v2) (+ (* t v1) (* (- 1 t) v2))))
                                any/c]{
 
-Perform an interpolated lookup: same as @racket[df-lookup], but if
-@racket[value] is not found exactly in @racket[base-series], it's
-relative position is determined and it is used to interpolate values
-from the corresponding @racket[series].
+  Perform an interpolated lookup: same as @racket[df-lookup], but if
+  @racket[value] is not found exactly in @racket[base-series], it's relative
+  position is determined and it is used to interpolate values from the
+  corresponding @racket[series].  This only works for sorted series, see
+  @racket[df-set-sorted!].
 
-An interpolation function can be specified, if the default one is not
-sufficient.  This function is called once for each value resulting
-@racket[series] (i.e. it interpolates values one by one).
-
-}
-
-@defproc[(df-map (df data-frame?)
-                 (series (or/c string? (listof string?)))
-                 (fn mapfn/c)
-                 (#:start start index/c 0)
-                 (#:stop stop index/c (df-row-count df)))
-                 vector?]{
-
-Map the function @racket[fn] over a list of @racket[series] between
-@racket[start] and @racket[stop] rows.  Returns a vector with the
-values that @racket[fn] returns.
-
-@racket[fn] is a function of ether one or two arguments.  If
-@racket[fn] is a function with one argument, it is called with the
-values from all @racket[series] as a single vector.  If @racket[fn] is
-a function of two arguments, it is called with the current and
-previous set of values, as vectors (this allows calculating "delta"
-values).  I.e. @racket[fn] is invoked as @racket[(fn prev current)].
-If @racket[fn] accepts two arguments, it will be invoked as
-@racket[(fn #f current)] for the first element of the iteration.
+  An interpolation function can be specified, if the default one is not
+  sufficient.  This function is called once for each value resulting
+  @racket[series] (i.e. it interpolates values one by one).
 
 }
 
-@defproc[(df-for-each (df data-frame?)
-                      (series (or/c string? (listof string?)))
-                      (fn mapfn/c)
-                      (#:start start index/c 0)
-                      (#:stop stop index/c (df-row-count df)))
-                      void]{
+@section{Extracting Data}
 
-Same as @racket[df-map], but all values returned by @racket[fn] are
-discarded and the function returns nothing.
+@deftogether[(@defproc[(df-select (df data-frame?)
+                                  (series string?)
+                                  (#:filter filter (or/c #f (-> any/c any/c)) #f)
+                                  (#:start start index/c 0)
+                                  (#:stop stop index/c (df-row-count df)))
+                       vector?]
+             @defproc[(df-select* (df data-frame?)
+                                  (#:filter filter (or/c #f (-> any/c any/c)) #f)
+                                  (#:start start index/c 0)
+                                  (#:stop stop index/c (df-row-count df))
+                                  (series string?) ...) vector?])]{
 
-}
+  @racket[df-select] returns a vector with the values in the series
+  @racket[series] from the data frame @racket[df], while @racket[df-select*]
+  returns a vector where each element is a vector containing values from one
+  ore more @racket[series] specified as an argument.
 
-@defproc[(df-fold (df data-frame?)
-                  (series (or/c string? (listof string?)))
-                  (init-value any/c)
-                  (fn foldfn/c)
-                  (#:start start index/c 0)
-                  (#:stop stop index/c (df-row-count df)))
-                  any/c]{
+  @racket[start] and @racket[stop] indicate the first and one-before-last row
+  to be selected. @racket[filter], when present, will filter values selected:
+  only values for which the function returns @racket[#t] will be added to the
+  resulting vector.
 
-Fold a function @racket[fn] over a list of @racket[series] between
-@racket[start] and @racket[stop] rows.  @racket[init-val] is the
-initial value for the fold operation.  The last value returned by
-@racket[fn] is returned by this function.
-
-@racket[fn] is a function of ether two or three arguments.  If
-@racket[fn] is a function with two arguments, it is called with the
-fold value plus the values from all @racket[series] is passed in as a
-single vector.  If @racket[fn] is a function of three arguments, it is
-called with the fold value plus the current and previous set of
-values, as vectors (this allows calculating "delta" values).
-I.e. @racket[fn] is invoked as @racket[(fn val prev current)].  If
-@racket[fn] accepts two arguments, it will be invoked as @racket[(fn
-init-val #f current)] for the first element of the iteration.
+  If there is no @racket[filter] specified, the resulting vector will have
+  @racket[(- stop start)] elements.  If there is a filter, the number of
+  elements depends on how many are filtered out by this function.
 
 }
 
-@defproc[(df-count-na (df data-frame?) (series string?)) exact-nonnegative-integer?]{
+@deftogether[(@defproc[(df-select/by-index (df data-frame?)
+                                           (series string?)
+                                           (#:index index-name string?)
+                                           (#:from from any/c #f)
+                                           (#:to to any/c #f)
+                                           (#:filter filter (or/c #f (-> any/c any/c)) #f))
+                       vector?]
+             @defproc[(df-select/by-index* (df data-frame?)
+                                           (series string?)
+                                           (#:index index-name string?)
+                                           (#:from from (listof any/c) #f)
+                                           (#:to to (listof any/c) #f)
+                                           (#:filter filter (or/c #f (-> any/c any/c)) #f))
+                       vector?]
+             @defproc[(df-select*/by-index (df data-frame?)
+                                           (#:index index-name string?)
+                                           (#:from from any/c #f)
+                                           (#:to to any/c #f)
+                                           (#:filter filter (or/c #f (-> any/c any/c)) #f)
+                                           (series string?) ...)
+                      vector?]
+             @defproc[(df-select*/by-index* (df data-frame?)
+                                            (#:index index-name string?)
+                                            (#:from from (listof any/c) #f)
+                                            (#:to to (listof any/c) #f)
+                                            (#:filter filter (or/c #f (-> any/c any/c)) #f)
+                                            (series string?) ...)
+                      vector?]
 
-Return the number of ``NA'' values in the @racket[series].
+             )]{
+
+  Same as @racket[df-select], and @racket[df-select*], but these functions
+  return elements in the order defined by the index @racket[index-name], and
+  elements are returned between the rows defined by the first occurence of
+  @racket[from] and the last occurence of @racket[to] in the indexed series
+  (the indexed series can contain duplicates).
+
+  @bold{HINT}: to select data from all rows where a colunm has a specified
+  value, define an index for the column and select using the same value for
+  both @racket[from] and @racket[to].
+
+  A multi-column index can also be iterated using a single value, in which
+  case only the first column of the index is used.  For example, if you have a
+  data frame with @italic{Country}, @italic{City} and @italic{CityPopulation}
+  series, you can define an index on @italic{Country} and
+  @italic{CityPopulation}, than select @italic{City} and
+  @italic{CityPopulation} on that index with a specific country as the
+  @racket[from] and @racket[to] arguments.  This will return all cities in
+  that country ordered by their population.
+
+  The @bold{by-index*} versions of these functins allow specifying a
+  multi-value key for a multivalue index.
 
 }
 
-@defproc[(df-is-na? (df data-frame?) (series string?) (value any/c)) boolean?]{
+@defproc[(valid-only (item any/c)) boolean?]{
 
-Return @racket[#t] if @racket[value] is @racket[equal?] to the ``NA''
-value in the @racket[series].  Each series in a data frame can have a
-different ``Not available'' value, but this value usually defaults to
-@racket[#f]
+  A small utility function that can be used as an argument to the
+  @italic{filter} argument to the @italic{select} functions, to select only
+  rows which have actual data (i.e. not NA values).  This function assumes
+  that the NA value is always @racket[#f].
 
-}
-
-@defproc[(df-has-na? (df data-frame?) (series string?)) boolean?]{
-
-Return @racket[#t] if @racket[series] has any ``NA'' values.
+  The function returns @racket[#t] if all elements of @racket[item] (which can
+  be a vector or a list) are not @racket[#f].
 
 }
 
-@defproc[(df-has-non-na? (df data-frame?) (series string?)) boolean?]{
+@section{Iterating Over Rows}
 
-Return @racket[#t] if @racket[series] has any values outside the
-``NA'' values.
+@deftogether[(@defproc[(df-map (df data-frame?)
+                               (series (or/c string? (listof string?)))
+                               (fn mapfn/c)
+                               (#:start start index/c 0)
+                               (#:stop stop index/c (df-row-count df)))
+                       vector?]
+             @defproc[(df-map/by-index (df data-frame?)
+                                       (series (or/c string? (listof string?)))
+                                       (fn mapfn/c)
+                                       (#:index index-name string?)
+                                       (#:from from any/c #f)
+                                       (#:to to any/c #f))
+                      vector?]
+             @defproc[(df-map/by-index* (df data-frame?)
+                                        (series (or/c string? (listof string?)))
+                                        (fn mapfn/c)
+                                        (#:index index-name string?)
+                                        (#:from from (listof any/c) #f)
+                                        (#:to to (listof any/c) #f))
+                      vector?])]{
+
+  Apply the function @racket[fn] over rows in the specified @racket[series]
+  and return a vector of the values that @racket[fn] returns.
+
+  @racket[fn] is a function of ether one or two arguments.  If @racket[fn] is
+  a function with one argument, it is called with the values from all
+  @racket[series] as a single vector.  If @racket[fn] is a function of two
+  arguments, it is called with the current and previous set of values, as
+  vectors (this allows calculating "delta" values).  I.e. @racket[fn] is
+  invoked as @racket[(fn prev current)].  If @racket[fn] accepts two
+  arguments, it will be invoked as @racket[(fn #f current)] for the first
+  element of the iteration.
+
+  @racket[df-map] will iterate over rows in the data frame between
+  @racket[start] and @racket[stop] positions, while @racket[df-map/by-index]
+  and @racket[df-map/by-index*] will iterate in the order defined by the index
+  @racket[index-name] between @racket[from] and @racket[to] values in the
+  indexed series.
+
+  See @racket[df-select/by-index*] for a discution on the differneces between
+  @bold{by-index} and @bold{by-index*} versions.
 
 }
 
- (df-shallow-copy (-> data-frame? data-frame?))
- (valid-only (-> any/c boolean?)))
+@deftogether[(@defproc[(df-for-each (df data-frame?)
+                                    (series (or/c string? (listof string?)))
+                                    (fn mapfn/c)
+                                    (#:start start index/c 0)
+                                    (#:stop stop index/c (df-row-count df)))
+                       void]
+             @defproc[(df-for-each/by-index (df data-frame?)
+                                            (series (or/c string? (listof string?)))
+                                            (fn mapfn/c)
+                                            (#:index index-name string?)
+                                            (#:from from any/c #f)
+                                            (#:to to any/c #f))
+                      void]
+             @defproc[(df-for-each/by-index* (df data-frame?)
+                                             (series (or/c string? (listof string?)))
+                                             (fn mapfn/c)
+                                             (#:index index-name string?)
+                                             (#:from from (listof any/c) #f)
+                                             (#:to to (listof any/c) #f))
+                      void])]{
+
+  Same as @racket[df-map] and its variants, but the result of calling
+  @racket[fn] is discarded and the function returns nothing.
+
+}
+
+@deftogether[(@defproc[(df-fold (df data-frame?)
+                                (series (or/c string? (listof string?)))
+                                (init-value any/c)
+                                (fn foldfn/c)
+                                (#:start start index/c 0)
+                                (#:stop stop index/c (df-row-count df)))
+                       any/c]
+             @defproc[(df-fold/by-index (df data-frame?)
+                                        (series (or/c string? (listof string?)))
+                                        (init-value any/c)
+                                        (fn foldfn/c)
+                                        (#:index index-name string?)
+                                        (#:from from any/c #f)
+                                        (#:to to any/c #f))
+                      any/c]
+             @defproc[(df-fold/by-index* (df data-frame?)
+                                         (series (or/c string? (listof string?)))
+                                         (init-value any/c)
+                                         (fn foldfn/c)
+                                         (#:index index-name string?)
+                                         (#:from from (listof any/c) #f)
+                                         (#:to to (listof any/c) #f))
+                      any/c])]{
+
+  Fold the function @racket[fn] over rows in the specified @racket[series].
+  @racket[init-val] is the initial value for the fold operation.  The last
+  value returned by @racket[fn] is returned by the folding function.
+
+  @racket[fn] is a function of ether two or three arguments.  If @racket[fn]
+  is a function with two arguments, it is called with the fold value plus the
+  values from all @racket[series] is passed in as a single vector.  If
+  @racket[fn] is a function of three arguments, it is called with the fold
+  value plus the current and previous set of values, as vectors (this allows
+  calculating "delta" values).  I.e. @racket[fn] is invoked as @racket[(fn val
+  prev current)].  If @racket[fn] accepts two arguments, it will be invoked as
+  @racket[(fn init-val #f current)] for the first element of the iteration.
+
+  @racket[df-fold] will iterate over rows in the data frame between
+  @racket[start] and @racket[stop] positions, while @racket[df-fold/by-index]
+  and @racket[df-fold/by-index*] will iterate in the order defined by the
+  index @racket[index-name] between @racket[from] and @racket[to] values in
+  the indexed series.
+
+  See @racket[df-select/by-index*] for a discution on the differneces between
+  @bold{by-index} and @bold{by-index*} versions.
+
+}
+
+@deftogether[(@defproc[(in-data-frame (df data-frame?)
+                                      (#:start start index/c 0)
+                                      (#:stop stop index/c (df-row-count df))
+                                      (series string?) ...)
+                       sequence?]
+             @defproc[(in-data-frame/as-list (df data-frame?)
+                                             (#:start start index/c 0)
+                                             (#:stop stop index/c (df-row-count df))
+                                             (series string?) ...)
+                      sequence?]
+             @defproc[(in-data-frame/as-vector (df data-frame?)
+                                               (#:start start index/c 0)
+                                               (#:stop stop index/c (df-row-count df))
+                                               (series string?) ...)
+                      sequence?])]{
+
+  Return a sequence that produces values from a list of @racket[series]
+  between @racket[start] and @racket[stop] rows.  The sequence produces
+  values, each one corresponding to one of the @racket[series].
+
+  This is intended to be used in @racket[for] and related constructs to
+  iterate over elements in the data frame:
+
+@racketblock[
+(for (([lat lon] (in-data-frame df "lat" "lon")))
+  (printf "lat = ~a, lon = ~a~%" lat lon))]
+
+  The @racket[in-data-frame/as-list] and @racket[in-data-frame/as-vector]
+  variants work the same, but they produce a single value, a list or a vector
+  containing a row of values from the @racket[series]:
+
+@racketblock[
+(for ((coord (in-data-frame/as-list df "lat" "lon")))
+   (match-define (list lat lon) coord)
+   (printf "lat = ~a, lon = ~a~%" lat lon))]
+
+}
+
+@deftogether[(@defproc[(in-data-frame/by-index (df data-frame?)
+                                               (#:index index-name string?)
+                                               (#:from from any/c #f)
+                                               (#:to to any/c #f)
+                                               (series string?) ...)
+                       sequence?]
+             @defproc[(in-data-frame/by-index/as-list (df data-frame?)
+                                                      (#:index index-name string?)
+                                                      (#:from from any/c #f)
+                                                      (#:to to any/c #f)
+                                                      (series string?) ...)
+                      sequence?]
+             @defproc[(in-data-frame/by-index/as-vector (df data-frame?)
+                                                        (#:index index-name string?)
+                                                        (#:from from any/c #f)
+                                                        (#:to to any/c #f)
+                                                        (series string?) ...)
+                      sequence?]
+             @defproc[(in-data-frame/by-index* (df data-frame?)
+                                               (#:index index-name string?)
+                                               (#:from from any/c #f)
+                                               (#:to to any/c #f)
+                                               (series string?) ...)
+                       sequence?]
+             @defproc[(in-data-frame/by-index*/as-list (df data-frame?)
+                                                       (#:index index-name string?)
+                                                       (#:from from any/c #f)
+                                                       (#:to to any/c #f)
+                                                       (series string?) ...)
+                      sequence?]
+             @defproc[(in-data-frame/by-index*/as-vector (df data-frame?)
+                                                         (#:index index-name string?)
+                                                         (#:from from any/c #f)
+                                                         (#:to to any/c #f)
+                                                         (series string?) ...)
+                      sequence?])]{
+
+  Same as the @racket[in-data-frame] constructs, but these iterate over the
+  index @racket[index-name] between @racket[from] and @racket[to] values in
+  the index.
+
+  See @racket[df-select/by-index*] for a discution on the differneces between
+  @bold{by-index} and @bold{by-index*} versions and on using @racket[from] and
+  @racket[to] values.
+
+}
+
 
 @section{Statistics}
 
@@ -818,7 +1069,7 @@ be sorted.  In addition, if the samples are numbers, empty slots will
 be created so that the buckets are also consecutive.
 
 }
-                    
+
 @defproc[(histogram-renderer (histogram histogram/c)
                              (#:color color any/c #f)
                              (#:skip skip real? (discrete-histogram-skip))
@@ -852,7 +1103,7 @@ values in the histogram represent running pace, the formatter can
 transform a value of @racket[300] into the label @racket["5:00"].
 
 }
-                          
+
 @defproc[(combine-histograms (h1 histogram/c) (h2 histogram/c)) combined-histogram/c]{
 
 Combine two histograms produced by @racket[df-histogram] into a single
@@ -908,7 +1159,7 @@ transform a value of @racket[300] into the label @racket["5:00"].
 @defmodule[data-frame/gpx]
 
 This module provides functions for reading and writing data frames using the
-@hyperlink["https://en.wikipedia.org/wiki/GPS_Exchange_Format"]{GPX Exchange
+@hyperlink["https://en.wikipedia.org/wiki/GPS_Exchange_Format"]{GPS Exchange
 Format (GPX)}.
 
 @defproc[(df-read/gpx (input (or/c path-string? input-port?)))
@@ -1022,7 +1273,7 @@ Center XML (TCX)} files into data frames.
   in the TCX document):
 
   @itemize[
-    
+
     @item{@racket['unit-id] the serial number of the device which recorded
           the activity.}
 

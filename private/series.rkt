@@ -3,7 +3,7 @@
 ;; series.rkt -- data frame series and related functions
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -203,7 +203,7 @@
 ;; the series, but it will validate all elements and raise an error if the
 ;; series is not actually sorted.  If CMPFN is #f, the sort restriction is
 ;; removed from the series.
-(define (series-bless-sorted c cmpfn)
+(define (series-set-sorted! c cmpfn)
   (when cmpfn
     (check-valid-sort c cmpfn))
   (set-series-cmpfn! c cmpfn))
@@ -217,7 +217,7 @@
 ;; Mark the data series C as having the CONTRACTFN contract.  All elements
 ;; will be validated with the contract first and an error will be raised if
 ;; they don't satisfy the contract.
-(define (series-bless-contract c contractfn)
+(define (series-set-contract! c contractfn)
   (when contractfn
     (check-valid-contract c contractfn))
   (set-series-contractfn! c contractfn))
@@ -264,14 +264,28 @@
 ;; I.e. VALUE will have to be inserted at or before the returned index to keep
 ;; the series sorted.  Will return (series-size c) if the searched value is
 ;; greater than all values in the series, note that this is not a valid index.
-(define (series-index-of c value)
+(define (series-index-of c value #:exact-match? (exact-match? #f))
   (match-define (series name data beg end cmpfn _ _) c)
   (if cmpfn
-      (lower-bound data value #:cmp cmpfn #:start beg #:stop end)
+      (let ([pos (lower-bound/no-checks data value #:cmp cmpfn #:start beg #:stop end)])
+        (if exact-match?
+            (and (< pos end) (equal? (vector-ref data pos) value) pos)
+            pos))
       (df-raise (format "series-index-of: ~a is not sorted" name))
       #;(for/first ([(x index) (in-indexed (in-vector data beg end))]
                     #:when (equal? x value))
           index)))
+
+(define (series-all-indices-of c value)
+  (match-define (series name data beg end cmpfn _ _) c)
+  (if cmpfn
+      (let-values ([(low high)
+                    (equal-range data value #:cmp cmpfn #:start beg #:stop end)])
+        (if (> low (series-size c))
+            '()
+            (for/list ([idx (in-range low high)])
+              idx)))
+      (df-raise (format "series-index-of: ~a is not sorted" name))))
 
 ;; Find the first and last indices (multiple) of VALUE in the data series C.
 ;; The series has to be sorted, otherwise an error is raised. All other results
@@ -331,11 +345,14 @@
                             (or/c -1 exact-nonnegative-integer?)
                             exact-integer?)
                  sequence?))
- (series-index-of (-> series? any/c (or/c #f exact-nonnegative-integer?)))
+ (series-index-of (->* (series? any/c)
+                       (#:exact-match? boolean?)
+                       (or/c #f exact-nonnegative-integer?)))
+ (series-all-indices-of (-> series? any/c (listof exact-nonnegative-integer?)))
  (series-equal-range (-> series? any/c (values (or/c #f exact-nonnegative-integer?)
                                                (or/c #f exact-nonnegative-integer?))))
- (series-bless-sorted (-> series? (or/c #f (-> any/c any/c boolean?)) any/c))
- (series-bless-contract (-> series? (or/c #f (-> any/c boolean?)) any/c))
+ (series-set-sorted! (-> series? (or/c #f (-> any/c any/c boolean?)) any/c))
+ (series-set-contract! (-> series? (or/c #f (-> any/c boolean?)) any/c))
  (series-na-count (-> series? exact-nonnegative-integer?))
  (series-has-na? (-> series? boolean?))
  (series-has-non-na? (-> series? boolean?)))
