@@ -332,6 +332,7 @@
  (series? (-> any/c boolean?))
  (series-na (-> series? any/c))
  (series-name (-> series? string?))
+ (set-series-name! (-> series? string? any/c))
  (series-size (-> series? exact-nonnegative-integer?))
  (series-empty? (-> series? boolean?))
  (series-is-na? (-> series? any/c boolean?))

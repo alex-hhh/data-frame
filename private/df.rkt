@@ -206,6 +206,27 @@
   (hash-remove! series name)
   (hash-remove! delayed name))
 
+;; Rename a series inside the data frame DF from OLD-NAME to NEW-NAME -- any
+;; dependent structures will be updated too.  In particular this will
+;; materialize any lazy series, making this a possibly costly operation.
+(define (df-rename-series! df old-name new-name)
+  (match-define (data-frame _ _ series delayed _ secondary-indexes) df)
+  (define the-series
+    (or (hash-ref series old-name #f)
+        (df-raise "df-rename-series! (\"~a\"): no such series" old-name)))
+  ;; Materialize all lazy series, in case one of them depends on OLD-NAME.
+  (for ([c (hash-keys delayed)])
+    (df-get-series df c))
+  (define indices-using-old-name
+    (indices-using-series df old-name))
+  (hash-remove! series old-name)
+  (set-series-name! the-series new-name)
+  (hash-set! series new-name the-series)
+  (for ([index (in-list indices-using-old-name)])
+    (define nindex (sx-rename-series index old-name new-name))
+    (hash-remove! secondary-indexes (sx-name index))
+    (hash-set! secondary-indexes (sx-name nindex) nindex)))
+
 ;; Add a new series to the data frame whose values are computed from values of
 ;; existing series.  The data for the series is created using `df-map` by
 ;; applying VALUE-FN on BASE-SERIES and the new data is added to the data
@@ -1178,6 +1199,13 @@
       (for/list ([idx (in-range low high)])
         (car (vector-ref data idx)))))
 
+;; Rename a series in the index INDEX from OLD-SERIES-NAME to NEW-SERIES-NAME
+;; -- this creates a new SX struct with all the other data unchanged.
+(define (sx-rename-series index old-series-name new-series-name)
+  (define nseries (for/list ([s (in-list (sx-series index))])
+                    (if (equal? s old-series-name) new-series-name s)))
+  (struct-copy sx index [series nseries]))
+
 
 ;;............................................................. Provides ....
 
@@ -1209,6 +1237,7 @@
  (df-ref* (->* (data-frame? index/c) #:rest (listof string?) vector?))
  (df-add-series! (-> data-frame? series? any/c))
  (df-del-series! (-> data-frame? string? any/c))
+ (df-rename-series! (-> data-frame? string? string? any/c))
  (df-add-derived! (-> data-frame? string? (listof string?) mapfn/c any/c))
  (df-add-lazy! (-> data-frame? string? (listof string?) mapfn/c any/c))
  (df-set-sorted! (-> data-frame? string? (or/c #f (-> any/c any/c boolean?)) any/c))

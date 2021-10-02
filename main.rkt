@@ -81,6 +81,7 @@
  df-put-property!
  df-ref
  df-ref*
+ df-rename-series!
  df-row-count
  df-select
  df-select/by-index

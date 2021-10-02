@@ -110,6 +110,19 @@ creating data frames, @racket[for/data-frame].
 
 }
 
+@defproc[(df-rename-series! (df data-frame?) (old-name string?) (new-name string?)) any/c]{
+
+  Rename a series in the data frame @racket[df] from @racket[old-name] to
+  @racket[new-name].  A series named @racket[old-name] must exist, otherwise
+  an error is signaled.
+
+  This operation will materialize all lazy series (see @racket[df-add-lazy!]),
+  making it a possibly costly operation if you have lazy series.  Indices
+  using @racket[old-name] will also be updated to use @racket[new-name], but
+  this operation is fast, and no re-indexing will be done.
+
+}
+
 @defproc[(df-add-derived! (df data-frame?) (name string?) (base-series (listof string?)) (value-fn mapfn/c)) any/c]{
 
   Add a new series named @racket[name] to the data frame @racket[df] with

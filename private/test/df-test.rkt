@@ -629,6 +629,18 @@
       (lambda ()
         (df-add-lazy! df "c1" '("c3" "c1") (lambda (v) (add1 (list-ref v 0)))))))
 
+   (test-case "df-rename-series!"
+     (define df (make-data-frame))
+     (df-add-series! df (make-series "c1" #:data #(0 1 2 3)))
+     (df-add-lazy! df "c2" '("c1") (lambda (v) (list-ref v 0)))
+     (df-add-index! df "i1" "c1" <)
+
+     (df-rename-series! df "c1" "c0")
+     (check-true (df-contains? df "c0"))
+     (check-true (df-contains? df "c2"))
+     (check-false (df-contains? df "c1"))
+     (check-equal? (df-index-of df "c0" 2) 2))
+
    (test-case "df-set!, df-ref, df-ref*"
      (define df (make-data-frame))
      (df-add-series! df (make-series "c0" #:data #(1 2 3 4) #:contract integer? #:cmpfn <))
