@@ -3,7 +3,7 @@
 ;; csv.rkt -- read and write data frames to CVS files
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -105,6 +105,8 @@
     (let ((c (read-char in)))
       (cond ((eof-object? c)
              (values current maybe-number? contains-whitespace?))
+            ;; NOTE: currently, a return or newline will terminate a string,
+            ;; but it is unclear if this is the right thing to do...
             ((equal? c #\newline)
              ;; Recognize #\newline + #\return combinations
              (when (equal? (peek-char in) #\return) (read-char in))
@@ -114,6 +116,9 @@
              (when (equal? (peek-char in) #\newline) (read-char in))
              (values current maybe-number? contains-whitespace?))
             ((equal? c #\")
+             ;; Quote ends the string, but only if it is not immediately
+             ;; followed by another quote -- this allows having quotes in
+             ;; strings.
              (if (equal? (peek-char in) #\")
                  (begin
                    (read-char in)             ; consume the next char
@@ -121,9 +126,17 @@
                  (values current maybe-number? contains-whitespace?)))
             (#t
              (loop (cons c current)
-                   (and maybe-number? (or (char-numeric? c) (char-punctuation? c)))
+                   (and maybe-number? (or (char-numeric? c)
+                                          (char-punctuation? c)
+                                          (char-whitespace? c)
+                                          (equal? c #\-)
+                                          (equal? c #\e)
+                                          (equal? c #\E)
+                                          (equal? c #\+)
+                                          (equal? c #\i)
+                                          (equal? c #\I)))
                    (or contains-whitespace? (char-whitespace? c))))))))
-  
+
 ;; Parse a LINE from a CSV file and return the list of "cells" in it as
 ;; strings or numbers also returns the number of cells in the list.  Takes
 ;; special care that comma characters "," inside strings are correctly
@@ -156,10 +169,15 @@
               (add1 cell-count)))
             ((equal? c #\,)
              ;; NOTE: will discard last whitespace-run
-             (loop null null (cons (->cell current maybe-number? contains-whitespace?) row) (add1 cell-count) #t #f))
+             (loop null
+                   null
+                   (cons (->cell current maybe-number? contains-whitespace?) row)
+                   (add1 cell-count)
+                   #t
+                   #f))
             ((char-whitespace? c)
              (if (null? current)
-                 ;; Discard whitespaces at the start of the string
+                 ;; Discard whitespace at the start of the string
                  (loop current '() row cell-count maybe-number? contains-whitespace?)
                  (loop current
                        (cons c whitespace-run)

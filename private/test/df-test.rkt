@@ -1172,28 +1172,34 @@
    (test-case "df-read/csv: basic"
      (define df1 (df-read/csv sample-csv))
      (check equal? (sort (df-series-names df1) string<?) '("four" "one" "three" "two"))
-     (check = (df-row-count df1) 6)
+     (check = (df-row-count df1) 9)
      (check equal? (df-select* df1 "one" "two" "three" "four")
             #(#(1 2 3 4)
               #(4 5 6 "abc")
               #(7 8 9 "def,gh")
               #(10 11 12 "a,bc 123 d\"ef")
               #(14 15 #f #f)
-              #("16" "17" #f #f))))
+              #("16" "-17" #f #f)
+              #("16.5" "1E3" #f #f)
+              #("-1e-3" "7.5e-3" #f #f)
+              #("-1e-2+3.5i" " -1e-2+3.5i " #f #f))))
 
    (test-case "df-read/csv: quoted-numbers"
      ;; Read the same file again, note that the last row will now contain
      ;; numbers, not strings
      (define df1a (df-read/csv sample-csv #:quoted-numbers? #t))
      (check equal? (sort (df-series-names df1a) string<?) '("four" "one" "three" "two"))
-     (check = (df-row-count df1a) 6)
+     (check = (df-row-count df1a) 9)
      (check equal? (df-select* df1a "one" "two" "three" "four")
             #(#(1 2 3 4)
               #(4 5 6 "abc")
               #(7 8 9 "def,gh")
               #(10 11 12 "a,bc 123 d\"ef")
               #(14 15 #f #f)
-              #(16 17 #f #f))))
+              #(16 -17 #f #f)
+              #(16.5 1e3 #f #f)
+              #(-1e-3 7.5e-3 #f #f)
+              #(-1e-2+3.5i -1e-2+3.5i #f #f))))
 
    (test-case "read/custom-na-string"
      ;; This CSV file contains "-" in the "empty" cells, strip them out when
