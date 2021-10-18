@@ -97,6 +97,17 @@
         (or (string->number v 10) v))
       as-string))
 
+;; Return #t if the character c is possibly part of a number...
+(define (number-constituent? c)
+  (or (char-numeric? c)
+      (char-punctuation? c)
+      (char-whitespace? c)
+      (equal? c #\e)
+      (equal? c #\E)
+      (equal? c #\+)             ; note that - is punctuation, but + is not...
+      (equal? c #\i)
+      (equal? c #\I)))
+
 ;; NOTE: returns a list of characters in reverse order
 (define (slurp-string in)
   (let loop ((current '())
@@ -126,15 +137,7 @@
                  (values current maybe-number? contains-whitespace?)))
             (#t
              (loop (cons c current)
-                   (and maybe-number? (or (char-numeric? c)
-                                          (char-punctuation? c)
-                                          (char-whitespace? c)
-                                          (equal? c #\-)
-                                          (equal? c #\e)
-                                          (equal? c #\E)
-                                          (equal? c #\+)
-                                          (equal? c #\i)
-                                          (equal? c #\I)))
+                   (and maybe-number? (number-constituent? c))
                    (or contains-whitespace? (char-whitespace? c))))))))
 
 ;; Parse a LINE from a CSV file and return the list of "cells" in it as
@@ -198,7 +201,7 @@
                    '()
                    row
                    cell-count
-                   (and maybe-number? (or (char-numeric? c) (char-punctuation? c)))
+                   (and maybe-number? (number-constituent? c))
                    (or contains-whitespace? (not (null? whitespace-run)))))))))
 
 ;; Read a data frame from the INPUT port, by decoding CSV input.  IF HEADERS?
