@@ -223,6 +223,13 @@
       exn:fail:data-frame?
       (lambda () (make-series "col1" #:data #(1 2 3) #:cmpfn >))))
 
+   (test-case "df-series: almost equal values"
+     (check-not-exn
+      (lambda ()
+        ;; (equal? 0 0.0) is #f, but we want to make sure a series which
+        ;; contains such values is still considered sorted...
+        (make-series "c" #:data #(0 0.0 0) #:cmpfn <))))
+
    (test-case "df-series: wrong contract"
      (check-exn
       exn:fail:data-frame?

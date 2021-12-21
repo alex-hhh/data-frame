@@ -61,7 +61,12 @@
     (define vprev (if (> index beg) (vector-ref data (sub1 index)) #f))
     (cond ((equal? v na)
            (df-raise "check-valid-sort: ~a contains NA / values @~a" name index))
-          ((and (> index beg) (not (or (equal? vprev v) (cmpfn vprev v))))
+          ((and (> index beg)
+                ;; NOTE: CMPFN defines strict ordering (i.e less than).  We
+                ;; admit equal values by assuming that either a < b or (not b
+                ;; < a), this is better than using equal? since (equal? 0 0.0)
+                ;; is #f...
+                (not (or (cmpfn vprev v) (not (cmpfn v vprev)))))
            (df-raise "check-valid-sort: ~a not really sorted @~a (~a vs ~a)"
                      name index vprev v)))))
 
