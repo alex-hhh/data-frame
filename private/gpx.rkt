@@ -3,7 +3,7 @@
 ;; gpx.rkt -- read and write GPX files from data frames
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -440,7 +440,7 @@ EOS
   ;; A "dst" series must exist in the data frame, so we create it if one was
   ;; not present in the data file.
   (when (and (df-contains? df "lat" "lon") (not (df-contains? df "dst")))
-    (define dst 0)
+    (define dst 0.0)
     (df-add-derived!
      df
      "dst"
