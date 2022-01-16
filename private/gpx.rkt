@@ -3,7 +3,7 @@
 ;; gpx.rkt -- read and write GPX files from data frames
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2021, 2022 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -246,8 +246,8 @@ EOS
 
 (define (get-track-name track)
   (for/first ([e (element-content track)] #:when (e-name? e 'name))
-    (pcdata-string
-     (for/first ([e (element-content e)] #:when (pcdata? e)) e))))
+    (define pcdata (for/first ([e (element-content e)] #:when (pcdata? e)) e))
+    (and pcdata (pcdata-string pcdata))))
 
 (define (get-track-segments track)
   (for/list ([e (element-content track)] #:when (e-name? e 'trkseg))
@@ -317,12 +317,13 @@ EOS
     ;; NOTE: we should extract the timestamp perhaps?  we don't really care
     ;; about it for now...
     (for ([e (element-content wpt)] #:when (element? e))
-      (let ((data (pcdata-string
-                   (for/first ([e (element-content e)] #:when (pcdata? e)) e))))
-        (case (element-name e)
-          ((time) (set! timestamp (xml-timestamp->seconds data)))
-          ((ele) (set! elevation (string->number data)))
-          ((name) (set! name data)))))
+      (let* ([pcdata (for/first ([e (element-content e)] #:when (pcdata? e)) e)]
+             [data (and pcdata (pcdata-string pcdata))])
+        (when data
+          (case (element-name e)
+            ((time) (set! timestamp (xml-timestamp->seconds data)))
+            ((ele) (set! elevation (string->number data)))
+            ((name) (set! name data))))))
     (list timestamp lat lon elevation name)))
 
 (define (parse-all-way-points gpx)
@@ -334,7 +335,7 @@ EOS
 ;; produce incorrect results if the GPX track contains loops or it is an "out
 ;; and back" track.
 (define (get-closest-timestamp df lat lon)
-  (and (df-contains? "lat" "lon" "timestamp")
+  (and (df-contains? df "lat" "lon" "timestamp")
        (let-values (((timestamp distance)
                      (for/fold ([timestamp #f] [distance #f])
                                (([plat plon ts] (in-data-frame df "lat" "lon" "timestamp")))
