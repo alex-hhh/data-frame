@@ -3,7 +3,7 @@
 ;; bsearch.rkt -- binary search in a sorted vector
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -18,8 +18,7 @@
 ;; You should have received a copy of the GNU Lesser General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require racket/contract
-         racket/math)
+(require racket/contract)
 
 ;; Both `lower-bound` and `upper-bound` will search a sorted vector, VEC for a
 ;; value VAL and return an index into the vector.  The vector is assumed to
@@ -68,11 +67,11 @@
 ;; NOTE: this works like the std::lower_bound() and std::upper_bound()
 ;; functions in C++.
 
-(define (lower-bound/no-checks vec val
-                               #:cmp (cmp-fn <)
-                               #:key (key-fn values)
-                               #:start (start 0)
-                               #:stop (end (vector-length vec)))
+(define (unsafe-lower-bound vec val
+                            #:cmp (cmp-fn <)
+                            #:key (key-fn values)
+                            #:start (start 0)
+                            #:stop (end (vector-length vec)))
 
   (let loop ([start start]
              [end end])
@@ -99,13 +98,13 @@
            (raise-range-error
             'lower-bound "vector" "ending " end vec start vlen 0))))
 
-  (lower-bound/no-checks vec val #:cmp cmp-fn #:key key-fn #:start start #:stop end))
+  (unsafe-lower-bound vec val #:cmp cmp-fn #:key key-fn #:start start #:stop end))
 
-(define (upper-bound/no-checks vec val
-                               #:cmp (cmp-fn <)
-                               #:key (key-fn values)
-                               #:start (start 0)
-                               #:stop (end (vector-length vec)))
+(define (unsafe-upper-bound vec val
+                            #:cmp (cmp-fn <)
+                            #:key (key-fn values)
+                            #:start (start 0)
+                            #:stop (end (vector-length vec)))
 
   (let loop ([start start]
              [end end])
@@ -132,7 +131,7 @@
            (raise-range-error
             'upper-bound "vector" "ending " end vec start vlen 0))))
 
-  (upper-bound/no-checks vec val #:cmp cmp-fn #:key key-fn #:start start #:stop end))
+  (unsafe-upper-bound vec val #:cmp cmp-fn #:key key-fn #:start start #:stop end))
 
 ;; Return two values representing the start and one-plus end ranges where VAL
 ;; is present in the sorted vector VEC.  This is equivalent to calling
@@ -153,11 +152,11 @@
            (raise-range-error
             'equal-range "vector" "ending " end vec start vlen 0))))
 
-  (define lb (lower-bound/no-checks vec val #:cmp cmp-fn #:key key-fn #:start start #:stop end))
+  (define lb (unsafe-lower-bound vec val #:cmp cmp-fn #:key key-fn #:start start #:stop end))
   (cond ((>= lb end) (values lb lb))
         (else
          (values lb
-                 (upper-bound/no-checks vec val #:cmp cmp-fn #:key key-fn #:start lb #:stop end)))))
+                 (unsafe-upper-bound vec val #:cmp cmp-fn #:key key-fn #:start lb #:stop end)))))
 
 
 ;;............................................................. provides ....
@@ -169,31 +168,22 @@
                     #:start integer?
                     #:stop integer?)
                    integer?))
- (lower-bound/no-checks (->* ((vectorof any/c) any/c)
-                             (#:cmp (-> any/c any/c boolean?)
-                              #:key (-> any/c any/c)
-                              #:start integer?
-                              #:stop integer?)
-                             integer?))
-
  (upper-bound (->* ((vectorof any/c) any/c)
                    (#:cmp (-> any/c any/c boolean?)
                     #:key (-> any/c any/c)
                     #:start integer?
                     #:stop integer?)
                    integer?))
- (upper-bound/no-checks (->* ((vectorof any/c) any/c)
-                             (#:cmp (-> any/c any/c boolean?)
-                              #:key (-> any/c any/c)
-                              #:start integer?
-                              #:stop integer?)
-                             integer?))
-
  (equal-range (->* ((vectorof any/c) any/c)
                    (#:cmp (-> any/c any/c boolean?)
                     #:key (-> any/c any/c)
                     #:start integer?
                     #:stop integer?)
                    (values integer? integer?)))
-
  )
+
+(provide
+ ;; Provide these without contracts -- unsafe is unsafe
+ unsafe-lower-bound
+ unsafe-upper-bound)
+

@@ -3,7 +3,7 @@
 ;; series.rkt -- data frame series and related functions
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -41,7 +41,6 @@
 (struct series
   (name                          ; name of this column
    data                          ; a vector containing column data
-   beg                           ; start index in the vector where data begins
    end                           ; end index in the vector where data ends
    cmpfn                         ; a compare function, when present, all
    ; elements in this column must be sorted
@@ -55,13 +54,13 @@
 ;; Check that the series C is sorted according to CMPFN, and raise an error if
 ;; it is not.
 (define (check-valid-sort c cmpfn)
-  (match-define (series name data beg end _ na _) c)
-  (for ((index (in-range beg end)))
+  (match-define (series name data end _ na _) c)
+  (for ((index (in-range 0 end)))
     (define v (vector-ref data index))
-    (define vprev (if (> index beg) (vector-ref data (sub1 index)) #f))
+    (define vprev (if (> index 0) (vector-ref data (sub1 index)) #f))
     (cond ((equal? v na)
            (df-raise "check-valid-sort: ~a contains NA / values @~a" name index))
-          ((and (> index beg)
+          ((and (> index 0)
                 ;; NOTE: CMPFN defines strict ordering (i.e less than).  We
                 ;; admit equal values by assuming that either a < b or (not b
                 ;; < a), this is better than using equal? since (equal? 0 0.0)
@@ -73,8 +72,8 @@
 ;; Check that all the values in the series C match the contract function
 ;; CONTRACTFN, and raise an error if they are not.
 (define (check-valid-contract c contractfn)
-  (match-define (series name data beg end _ na _) c)
-  (for ((index (in-range beg end)))
+  (match-define (series name data end _ na _) c)
+  (for ((index (in-range 0 end)))
     (define v (vector-ref data index))
     (unless (or (equal? v na) (contractfn v))
       (df-raise "check-valid-contract: ~a value ~a fails contract @~a" name v index))))
@@ -84,10 +83,10 @@
 ;; sorted, check that the sort order is preserved.  An error is raised if
 ;; there is a problem with inserting this value.
 (define (check-valid-insert c index val)
-  (match-define (series _ data beg end cmpfn na contractfn) c)
-  (when (or (< index beg) (> index end))
+  (match-define (series _ data end cmpfn na contractfn) c)
+  (when (or (< index 0) (> index end))
     (raise-range-error
-     'check-valid-insert "vector" "" index data 0 (- end beg)))
+     'check-valid-insert "vector" "" index data 0 end))
   ;; Check for contract match
   (when (and contractfn (not (equal? val na)) (not (contractfn val)))
     (raise-argument-error 'check-valid-insert
@@ -100,7 +99,7 @@
        'check-valid-insert
        "value cannot be NA in a sorted column"
        val))
-    (let ((prev-index (if (> index beg) (sub1 index) #f)))
+    (let ((prev-index (if (> index 0) (sub1 index) #f)))
       (when prev-index
         (unless (cmpfn (vector-ref data prev-index) val)
           (raise-argument-error
@@ -120,15 +119,14 @@
 ;; number of actual elements in the series will not change.
 (define (series-reserve-space c space)
   (when (< (series-free-space c) space)
-    (match-define (series name data beg end _ na _) c)
+    (match-define (series name data end _ na _) c)
     (define ncap (max (exact-truncate (* (vector-length data) 1.5))
                       (+ end space)))
     (define ndata (make-vector ncap na))
-    (for (([v idx] (in-indexed (in-vector data beg end))))
+    (for (([v idx] (in-indexed (in-vector data 0 end))))
       (vector-set! ndata idx v))
     (set-series-data! c ndata)
-    (set-series-beg! c 0)
-    (set-series-end! c (- end beg))))
+    (set-series-end! c end)))
 
 
 ;; Construct a new data series.  NAME is the name of the data series.  DATA is
@@ -150,7 +148,6 @@
     (series
      name
      (or data (make-vector capacity na))
-     0
      (if data (vector-length data) 0)
      cmpfn
      na
@@ -167,7 +164,7 @@
 
 ;; Return the number of elements in the series C.
 (define (series-size c)
-  (- (series-end c) (series-beg c)))
+  (series-end c))
 
 ;; Return the amount of free space in the series C.  This represents the
 ;; number of elements that can be added to the series without triggering a new
@@ -181,20 +178,24 @@
 
 ;; Return the value at INDEX in the series C
 (define (series-ref c index)
-  (match-define (series name data beg end _ _ _) c)
-  (when (or (< index beg) (>= index end))
+  (match-define (series name data end _ _ _) c)
+  (when (or (< index 0) (>= index end))
     (raise-range-error
-     'series-ref (format "vector(~a)" name) "" index data 0 (- end beg)))
-  (vector-ref data (- index beg)))
+     'series-ref (format "vector(~a)" name) "" index data 0 end))
+  (vector-ref data index))
+
+;; Unsafe version of `series-ref` -- does not check bounds.
+(define (unsafe-series-ref c index)
+  (vector-ref (series-data c) index))
 
 ;; Update the value at INDEX in the series C to the new value VAL.  If a CMPFN
 ;; or CONTRACTFN is present in the series, value has to satisfy the contract
 ;; and sort order respectively, otherwise, an error is raised.
 (define (series-set! c index val)
-  (match-define (series name data beg end _ _ contractfn) c)
-  (when (or (< index beg) (>= index end))
+  (match-define (series name data end _ _ contractfn) c)
+  (when (or (< index 0) (>= index end))
     (raise-range-error
-     'series (format "vector(~a)" name) "" index data 0 (- end beg)))
+     'series (format "vector(~a)" name) "" index data 0 end))
   (check-valid-insert c index val)
   ;; When the series is passed a #:data argument, we might get an immutable
   ;; vector, make a mutable one, so we can set a value in it (we delay doing
@@ -202,7 +203,7 @@
   (when (immutable? data)
     (set! data (vector-copy data)))
   (set-series-data! c data)
-  (vector-set! data (- index beg) val))
+  (vector-set! data index val))
 
 ;; Mark the data series C as sorted according to CMPFN.  This will not sort
 ;; the series, but it will validate all elements and raise an error if the
@@ -239,26 +240,26 @@
 ;; Return a sequence that enumerates elements in the data series C between
 ;; START and STOP with STEP.  This can be used in for loops.
 (define (in-series c [start 0] [stop (series-size c)] [step 1])
-  (match-define (series _ data beg end _ _ _) c)
-  (define s (+ start beg))
-  (define e (+ stop beg))
+  (match-define (series _ data end _ _ _) c)
+  (define s start)
+  (define e stop)
   (if (<= start stop)
       (begin
-        (unless (<= beg s end)
-    (raise-range-error
-           'in-series "vector1" "" start data 0 (- end beg)))
-        (unless (<= beg e end)
-    (raise-range-error
-           'in-series "vector2" "" stop data 0 (- end beg)))
+        (unless (<= 0 s end)
+          (raise-range-error
+           'in-series "vector1" "" start data 0 end))
+        (unless (<= 0 e end)
+          (raise-range-error
+           'in-series "vector2" "" stop data 0 end))
         (unless (> step 0)
           (raise-argument-error 'step "positive" step)))
       (begin
-        (unless (<= (sub1 beg) s end)
+        (unless (<= -1 s end)
           (raise-range-error
-           'in-series "vector3" "" start data 0 (- end beg)))
-        (unless (<= (sub1 beg) e end)
+           'in-series "vector3" "" start data 0 end))
+        (unless (<= -1 e end)
           (raise-range-error
-           'in-series "vector4" "" stop data 0 (- end beg)))
+           'in-series "vector4" "" stop data 0 end))
         (unless (< step 0)
           (raise-argument-error 'step "negative" step))))
   (in-vector (series-data c) s e step))
@@ -270,22 +271,22 @@
 ;; the series sorted.  Will return (series-size c) if the searched value is
 ;; greater than all values in the series, note that this is not a valid index.
 (define (series-index-of c value #:exact-match? (exact-match? #f))
-  (match-define (series name data beg end cmpfn _ _) c)
+  (match-define (series name data end cmpfn _ _) c)
   (if cmpfn
-      (let ([pos (lower-bound/no-checks data value #:cmp cmpfn #:start beg #:stop end)])
+      (let ([pos (unsafe-lower-bound data value #:cmp cmpfn #:start 0 #:stop end)])
         (if exact-match?
             (and (< pos end) (equal? (vector-ref data pos) value) pos)
             pos))
       (df-raise (format "series-index-of: ~a is not sorted" name))
-      #;(for/first ([(x index) (in-indexed (in-vector data beg end))]
+      #;(for/first ([(x index) (in-indexed (in-vector data 0 end))]
                     #:when (equal? x value))
           index)))
 
 (define (series-all-indices-of c value)
-  (match-define (series name data beg end cmpfn _ _) c)
+  (match-define (series name data end cmpfn _ _) c)
   (if cmpfn
       (let-values ([(low high)
-                    (equal-range data value #:cmp cmpfn #:start beg #:stop end)])
+                    (equal-range data value #:cmp cmpfn #:start 0 #:stop end)])
         (if (> low (series-size c))
             '()
             (for/list ([idx (in-range low high)])
@@ -296,27 +297,27 @@
 ;; The series has to be sorted, otherwise an error is raised. All other results
 ;; are the same as series-index-of.
 (define (series-equal-range c value)
-  (match-define (series name data beg end cmpfn _ _) c)
+  (match-define (series name data end cmpfn _ _) c)
   (if cmpfn
-      (equal-range data value #:cmp cmpfn #:start beg #:stop end)
+      (equal-range data value #:cmp cmpfn #:start 0 #:stop end)
       (df-raise (format "series-equal-range: ~a is not sorted" name))))
 
 ;; Return the number of "not available" values in the data series.
 (define (series-na-count c)
-  (match-define (series _ data beg end _ na _) c)
-  (or (for/sum ([x (in-vector data beg end)] #:when (equal? x na)) 1) 0))
+  (match-define (series _ data end _ na _) c)
+  (or (for/sum ([x (in-vector data 0 end)] #:when (equal? x na)) 1) 0))
 
 ;; Return #t if the data series C has any "not available" values.  This is the
 ;; same as (eqv? (series-na-count c) 0), but it is faster if there are any NA
 ;; values.
 (define (series-has-na? c)
-  (match-define (series _ data beg end _ na _) c)
-  (for/first ([x (in-vector data beg end)] #:when (equal? x na)) #t))
+  (match-define (series _ data end _ na _) c)
+  (for/first ([x (in-vector data 0 end)] #:when (equal? x na)) #t))
 
 ;; Return #t if the data series C has at least one value that is NOT "NA".
 (define (series-has-non-na? c)
-  (match-define (series _ data beg end _ na _) c)
-  (for/first ([x (in-vector data beg end)] #:unless (equal? x na)) #t))
+  (match-define (series _ data end _ na _) c)
+  (for/first ([x (in-vector data 0 end)] #:unless (equal? x na)) #t))
 
 ;; Return true if VAL is the same as the NA value for the data series C.
 (define (series-is-na? c val)
@@ -362,3 +363,7 @@
  (series-na-count (-> series? exact-nonnegative-integer?))
  (series-has-na? (-> series? boolean?))
  (series-has-non-na? (-> series? boolean?)))
+
+(provide
+ ;; Also provide it without a contract -- unsafe is unsafe
+ unsafe-series-ref)

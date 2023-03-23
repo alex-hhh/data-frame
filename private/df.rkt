@@ -3,7 +3,7 @@
 ;; df.rkt -- data frame implementation and basic routines
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -158,8 +158,11 @@
 
 ;; Return the value at INDEX for SERIES.
 (define (df-ref df index series)
+  (unless (<= 0 index (df-row-count df))
+    (df-raise "df-ref: bad index ~a, expecting in range [~a, ~a)"
+              index 0 (df-row-count df)))
   (let ([s (df-get-series df series)])
-    (series-ref s index)))
+    (unsafe-series-ref s index)))
 
 ;; Set the VALUE at INDEX in SERIES.  This will first validate that the series
 ;; is still sorted (if SERIES was sorted) and that VALUE satisfies the SERIES
@@ -172,9 +175,12 @@
 
 ;; Return a vector with values at INDEX for each element in the SERIES list.
 (define (df-ref* df index . series)
+  (unless (<= 0 index (df-row-count df))
+    (df-raise "df-ref: bad index ~a, expecting in range [~a, ~a)"
+              index 0 (df-row-count df)))
   (for/vector ([series (in-list series)])
     (let ([s (df-get-series df series)])
-      (series-ref s index))))
+      (unsafe-series-ref s index))))
 
 ;; Return the NA value for SERIES.
 (define (df-na-value df series)
@@ -405,7 +411,7 @@
           (let ([pos (sx-index-of sx value)])
             (if exact-match?
                 (and (< pos (series-size s))
-                     (equal? (series-ref s pos) value)
+                     (equal? (unsafe-series-ref s pos) value)
                      pos)
                 pos))))))
 
@@ -424,7 +430,7 @@
               (let ((limit (series-size s)))
                 (for/list ([v (in-list values)])
                   (define pos (sx-index-of sx v))
-                  (and (< pos limit) (equal? (series-ref s pos) v) pos)))
+                  (and (< pos limit) (equal? (unsafe-series-ref s pos) v) pos)))
               (for/list ([v (in-list values)])
                 (sx-index-of sx v)))))))
 
@@ -484,8 +490,8 @@
         (if (< index limit)
             (if (list? slist)
                 (for/vector #:length nitems ([s (in-list slist)])
-                  (series-ref s index))
-                (series-ref slist index))
+                  (unsafe-series-ref s index))
+                (unsafe-series-ref slist index))
             (if (list? slist)
                 (for/vector #:length nitems ([s (in-list slist)])
                   (series-na s))
@@ -580,8 +586,9 @@
                        (df-get-series df sn)))
   (make-in-data-frame-sequence
    (lambda (pos)
-     (define vals (for/list ([s (in-list the-series)])
-                    (series-ref s pos)))
+     (define vals
+       (for/list ([s (in-list the-series)])
+         (unsafe-series-ref s pos)))
      (apply values vals))
    start stop))
 
@@ -596,7 +603,7 @@
   (make-in-data-frame-sequence
    (lambda (pos)
      (for/list ([s (in-list the-series)])
-       (series-ref s pos)))
+       (unsafe-series-ref s pos)))
    start stop))
 
 ;; Same as `in-data-frame` but returns one single value, a vector of all the
@@ -613,7 +620,7 @@
    (lambda (pos)
      (for/vector #:length result-length
          ([s (in-list the-series)])
-       (series-ref s pos)))
+       (unsafe-series-ref s pos)))
    start stop))
 
 
@@ -653,8 +660,9 @@
   (make-in-data-frame-sequence
    (lambda (pos)
      (define index (sx-index-ref sx pos))
-     (define vals (for/list ([s (in-list the-series)])
-                    (series-ref s index)))
+     (define vals
+       (for/list ([s (in-list the-series)])
+         (unsafe-series-ref s index)))
      (apply values vals))
    start stop))
 
@@ -678,8 +686,9 @@
   (make-in-data-frame-sequence
    (lambda (pos)
      (define index (sx-index-ref sx pos))
-     (define vals (for/list ([s (in-list the-series)])
-                    (series-ref s index)))
+     (define vals
+       (for/list ([s (in-list the-series)])
+         (unsafe-series-ref s index)))
      (apply values vals))
    start stop))
 
@@ -704,7 +713,7 @@
    (lambda (pos)
      (define index (sx-index-ref sx pos))
      (for/list ([s (in-list the-series)])
-       (series-ref s index)))
+       (unsafe-series-ref s index)))
    start stop))
 
 ;; Same as `in-data-frame/by-index` but produces single values, a vector of
@@ -730,7 +739,7 @@
      (define index (sx-index-ref sx pos))
      (for/vector #:length result-length
          ([s (in-list the-series)])
-       (series-ref s index)))
+       (unsafe-series-ref s index)))
    start stop))
 
 ;; Same as `in-data-frame/by-index*` but produces single values, a list of
@@ -754,7 +763,7 @@
    (lambda (pos)
      (define index (sx-index-ref sx pos))
      (for/list ([s (in-list the-series)])
-       (series-ref s index)))
+       (unsafe-series-ref s index)))
    start stop))
 
 ;; Same as `in-data-frame/by-index*` but produces single values, a vector of
@@ -780,7 +789,7 @@
      (define index (sx-index-ref sx pos))
      (for/vector #:length result-length
          ([s (in-list the-series)])
-       (series-ref s index)))
+       (unsafe-series-ref s index)))
    start stop))
 
 ;; Returns a vector with the values in the series NAME from the data frame DF.
@@ -841,7 +850,7 @@
             ([d (make-in-data-frame-sequence
                  (lambda (pos)
                    (define index (sx-index-ref sx pos))
-                   (series-ref s index))
+                   (unsafe-series-ref s index))
                  start stop)])
           d))))
 
@@ -914,7 +923,7 @@
                    (define index (sx-index-ref sx pos))
                    (for/vector #:length series-count
                        ([s (in-list the-series)])
-                     (series-ref s index)))
+                     (unsafe-series-ref s index)))
                  start stop)])
           d))))
 
@@ -964,7 +973,7 @@
        (lambda (pos)
          (define index (sx-index-ref sx pos))
          (for/list ([s (in-list the-series)])
-           (series-ref s index)))
+           (unsafe-series-ref s index)))
        start stop))
     (df-map/internal generator fn (- stop start))))
 
@@ -1168,12 +1177,12 @@
 ;; Find the position in the index of the first value VALS
 (define (sx-lower-bound sx vals)
   (define key (cons #f vals))
-  (lower-bound/no-checks (sx-data sx) key #:cmp (sx-less-than-fn sx)))
+  (unsafe-lower-bound (sx-data sx) key #:cmp (sx-less-than-fn sx)))
 
 ;; Find the position in the index of the last value VALS
 (define (sx-upper-bound sx vals)
   (define key (cons #f vals))
-  (upper-bound/no-checks (sx-data sx) key #:cmp (sx-less-than-fn sx)))
+  (unsafe-upper-bound (sx-data sx) key #:cmp (sx-less-than-fn sx)))
 
 ;; Find the indexed position for the value in the index POS.
 (define (sx-index-ref sx pos)
