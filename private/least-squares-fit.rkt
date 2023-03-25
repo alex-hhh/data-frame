@@ -318,7 +318,7 @@
         coefficients
         (if residual? (calculate-residual fn xs ys) #f)
         fn)))
-    ((polynomial)
+    ((poly polynomial)
      (let* ((coefficients (polynomial-fit-coefficients xs ys n degree))
             (fn (make-polynomial coefficients)))
        (least-squares-fit
