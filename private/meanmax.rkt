@@ -3,7 +3,7 @@
 ;; meanmax.rkt -- Mean Max calculations and plots for data frames
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -26,7 +26,7 @@
          racket/match
          racket/math
          "df.rkt"
-         "spline.rkt")
+         "../spline.rkt")
 
 
 ;;............................................................. best avg ....

@@ -966,12 +966,12 @@ function.
 }
 
 @defproc[(df-least-squares-fit (df data-frame?) (xseries string?) (yseries string?)
-         (#:start start exact-nonnegative-integer 0)
-         (#:stop stop exact-nonnegative-integer (df-row-count df))
+         (#:start start exact-nonnegative-integer? 0)
+         (#:stop stop exact-nonnegative-integer? (df-row-count df))
          (#:mode mode (or/c 'linear 'polynomial 'poly 'power 'exponential 'exp 'logarithmic 'log) 'linear)
-         (#:polynomial-degree degree exact-nonnegative-integer 2)
+         (#:polynomial-degree degree exact-nonnegative-integer? 2)
          (#:residual? residual? boolean? #f)
-         (#:annealing? annealing? boolean #f)
+         (#:annealing? annealing? boolean? #f)
          (#:annealing-iterations iterations exact-nonnegative-integer? 500))
          least-squares-fit?]{
 

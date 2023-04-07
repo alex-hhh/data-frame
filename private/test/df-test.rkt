@@ -3,7 +3,7 @@
 ;; df-test.rkt -- tests for data-frame.rkt
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018, 2020, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -35,7 +35,7 @@
 (require "../bsearch.rkt"
          "../series.rkt"
          "../exn.rkt"
-         "../spline.rkt"
+         "../../spline.rkt"
          "../df.rkt"
          "../sql.rkt"
          "../csv.rkt"
@@ -47,7 +47,7 @@
          "../rdp-simplify.rkt"
          "../least-squares-fit.rkt"
          "../scatter.rkt"
-         "../slr.rkt"
+         "../../slr.rkt"
          "../for-df.rkt")
 
 (define-runtime-path csv-test-file "./csv-tests-t1.csv")
@@ -1644,7 +1644,7 @@
    (test-case "AB#26 no slr"
      ;; No linear regression can be generated if the XS series has a 0
      ;; standard deviation (i.e. all values are the same)
-     (check-equal? (make-slr '(1 1 1) '(1 2 3)) #f))))
+     (check-equal? (simple-linear-regression '(1 1 1) '(1 2 3)) #f))))
 
 (define for-tests
   (test-suite

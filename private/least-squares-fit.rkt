@@ -3,7 +3,7 @@
 ;; least-squares-fit.rkt --  fit curves based on least squares method
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -18,7 +18,11 @@
 ;; You should have received a copy of the GNU Lesser General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require "df.rkt" "annealing.rkt" math/matrix racket/contract racket/match)
+(require "df.rkt"
+         "../annealing.rkt"
+         math/matrix
+         racket/contract
+         racket/match)
 
 ;; Return polynomial coefficients for a polynomial that fits the XS/YS data
 ;; set.  NITEMS is the number if items in XS and YS and DEGREE is the degree

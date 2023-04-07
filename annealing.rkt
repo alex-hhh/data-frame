@@ -50,7 +50,7 @@
 
 ;; Default progress reporting function for the annealing function.  Does
 ;; nothing.
-(define (default-progress event t cost state)
+(define (default-progress _event _t _cost _state)
   (void))
 
 ;; Implement the simulated annealing algorithm as described in:
@@ -210,7 +210,7 @@
                      #:max maximum
                      #:initial [initial (/ (+ minimum maximum) 2)]
                      #:distribution-kind [dkind 'normal]
-                     #:stddev [stddev (- maximum minimum)])
+                     #:stddev [stddev (/ (- maximum minimum) 6)])
   (when (>= minimum maximum)
     (error "make-aparam: bad minimum maximum parameters"))
   (define meta (ameta name dkind initial minimum maximum stddev))
