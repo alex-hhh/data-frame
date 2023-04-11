@@ -15,7 +15,8 @@
 ;; You should have received a copy of the GNU Lesser General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(require "private/df.rkt"
+(require racket/contract
+         "private/df.rkt"
          "private/exn.rkt"
          "private/series.rkt"
          "private/describe.rkt"
@@ -109,6 +110,22 @@
  valid-only
 
  )
+
+;; Names kept for compatibility, should be removed in 2022
+(provide/contract
+ (rename in-data-frame/as-list in-data-frame/list (->* (data-frame?)
+                                                       (#:start index/c #:stop index/c)
+                                                       #:rest (listof string?)
+                                                       sequence?))
+ (rename df-put-property! df-put-property (-> data-frame? symbol? any/c any/c))
+ (rename df-del-property! df-del-property (-> data-frame? symbol? any/c))
+ (rename df-add-series! df-add-series (-> data-frame? series? any/c))
+ (rename df-del-series! df-del-series (-> data-frame? string? any/c))
+ (rename df-add-derived! df-add-derived (-> data-frame? string? (listof string?) mapfn/c any/c))
+ (rename df-add-lazy! df-add-lazy (-> data-frame? string? (listof string?) mapfn/c any/c))
+ (rename df-set-sorted! df-set-sorted (-> data-frame? string? (or/c #f (-> any/c any/c boolean?)) any/c))
+ (rename df-set-contract! df-set-contract (-> data-frame? string? (or/c #f (-> any/c boolean?)) any/c)))
+
 
 ;; raco setup --check-pkg-deps --pkgs data-frame
 ;; raco test --no-run-if-absent --package data-frame
