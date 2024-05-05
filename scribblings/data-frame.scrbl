@@ -59,9 +59,12 @@ creating data frames, @racket[for/data-frame].
 
 }
 
-@defproc[(make-data-frame) data-frame?]{
+@defproc[(make-data-frame (#:series series (listof series?) null)) data-frame?]{
 
-  Return a new, empty, data frame.  The data frame does not contain any
+  Make a new, data frame with @racket[series] as the initial set of series.
+  All series must have the same size (see @racket[series-size]).
+
+  If @racket[series] is @racket[null], the data frame will not contain any
   series, and its size will be determined by the first series added, see also
   @racket[df-add-series!].
 

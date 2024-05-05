@@ -3,7 +3,7 @@
 ;; df-test.rkt -- tests for data-frame.rkt
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018, 2020, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2020, 2021, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -257,13 +257,13 @@
       exn:fail:contract?
       (lambda ()
         (series-ref c2 10)))
-     (series-push-back c2 5)
+     (series-push-back! c2 5)
      (check = (series-size c2) 4)
      (check = (series-ref c2 3) 5)
      (check-exn
       exn:fail:contract?
       ;; cannot add a non sorted element
-      (lambda () (series-push-back c2 1)))
+      (lambda () (series-push-back! c2 1)))
 
      (check-false (series-has-na? c2))
      (check-true (series-has-non-na? c2))
@@ -293,13 +293,13 @@
       exn:fail:contract?
       (lambda ()
         ;; c2 contains only integers
-        (series-push-back c2 "abc")))
+        (series-push-back! c2 "abc")))
 
      (check-exn
       exn:fail:contract?
       (lambda ()
         ;; c2 contains only integers
-        (series-push-back c2 6.5)))
+        (series-push-back! c2 6.5)))
 
      (check-not-exn
       (lambda ()
@@ -308,7 +308,7 @@
      (check-not-exn
       (lambda ()
         ;; c2 now contains reals
-        (series-push-back c2 6.5)))
+        (series-push-back! c2 6.5)))
 
      (check-exn
       exn:fail:data-frame?
@@ -321,11 +321,11 @@
      (check-exn
       exn:fail:contract?
       (lambda ()
-        (series-push-back c2 4)))
+        (series-push-back! c2 4)))
      (check = (series-size c2) 5)
      (check-not-exn
       (lambda ()
-        (series-push-back c2 7)))
+        (series-push-back! c2 7)))
 
      (check-exn
       exn:fail:contract?

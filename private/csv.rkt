@@ -211,8 +211,7 @@
 ;; are padded with #f, if it has more, they are silently truncated.  NA
 ;; determines the string that constitutes the "not available" value.
 (define (read-csv input headers? na qn?)
-  (define df (make-data-frame))
-  (define series #f)
+  (define series null)
   (define na? (if (procedure? na) na (lambda (v) (equal? v na))))
   (define (decode cell) (if (na? cell) #f cell))
   (unless (eof-object? (peek-char input))
@@ -235,12 +234,12 @@
                               (loop (add1 suffix) #t)
                               (set! name candidate)))))
                     (set! seen-header-names (cons name seen-header-names))
-                    (make-series name #:capacity 100)))))
+                    (make-series name #:capacity 256)))))
         (begin
           (set! series (for/list ([idx (in-range series-count)])
-                         (make-series (format "col~a" idx) #:capacity 100)))
+                         (make-series (format "col~a" idx) #:capacity 256)))
           (for ([s (in-list series)] [v (in-list (reverse first-row-cells))])
-            (series-push-back s (decode v)))))
+            (unsafe-series-push-back! s (decode v)))))
     (set! series (reverse series))
     (let row-loop ()
       (unless (eof-object? (peek-char input))
@@ -259,11 +258,9 @@
                                       ;; To few cells, we need to pad them out
                                       ;; at the front.
                                       (append (make-list (- series-count cell-count) #f) cells))))])
-            (series-push-back series (decode cell))))
-        (row-loop)))
-    (for ((s (in-list series)))
-      (df-add-series! df s)))
-  df)
+            (unsafe-series-push-back! series (decode cell))))
+        (row-loop))))
+  (make-data-frame #:series series))
 
 ;; Read CSV data in a data frame from the INP which is either a port or a
 ;; string, in which case it is assumed to be a file name.  IF HEADERS?  is

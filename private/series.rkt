@@ -128,7 +128,6 @@
     (set-series-data! c ndata)
     (set-series-end! c end)))
 
-
 ;; Construct a new data series.  NAME is the name of the data series.  DATA is
 ;; a data vector with the contents of the series (if #f, an empty series is
 ;; constructed).  CAPACITY specifies the initial capacity of an empty series
@@ -231,8 +230,14 @@
 ;; Append a new element, VAL, to the data series C.  If a contract is present,
 ;; VAL has to satisfy the contract.  If the series is sorted, VAL has to
 ;; preserve the sort order.
-(define (series-push-back c val)
+(define (series-push-back! c val)
   (check-valid-insert c (series-end c) val)
+  (series-reserve-space c 1)
+  (vector-set! (series-data c) (series-end c) val)
+  (set-series-end! c (add1 (series-end c))))
+
+;; Like series-push-back, but don't check that the element is valid.
+(define (unsafe-series-push-back! c val)
   (series-reserve-space c 1)
   (vector-set! (series-data c) (series-end c) val)
   (set-series-end! c (add1 (series-end c))))
@@ -347,7 +352,7 @@
  (series-reserve-space (-> series? exact-nonnegative-integer? any/c))
  (series-ref (-> series? exact-nonnegative-integer? any/c))
  (series-set! (-> series? exact-nonnegative-integer? any/c any/c))
- (series-push-back (-> series? any/c any/c))
+ (series-push-back! (-> series? any/c any/c))
  (in-series (->* (series?) (exact-nonnegative-integer?
                             (or/c -1 exact-nonnegative-integer?)
                             exact-integer?)
@@ -366,4 +371,5 @@
 
 (provide
  ;; Also provide it without a contract -- unsafe is unsafe
- unsafe-series-ref)
+ unsafe-series-ref
+ unsafe-series-push-back!)

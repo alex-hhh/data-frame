@@ -3,7 +3,7 @@
 ;; sql.rkt -- read data frames from SQL queries
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -35,26 +35,23 @@
             (#t "unnamed"))))
   (define rows (rows-result-rows result))
   (define num-rows (length rows))
-  (define df (make-data-frame))
 
-  ;; If query returned 0 rows, don't add any series to the data frame
-  (when (> num-rows 0)
-    (define data-series
-      (for/list ((x (in-range (length headers))))
-        (make-vector num-rows #f)))
-    (for ([row rows]
-          [x (in-range num-rows)])
-      (for ([series data-series]
-            [y (in-range (length data-series))])
-        (let ((val (vector-ref row y)))
-          (vector-set! series x (if (sql-null? val) #f val)))))
-
-    (for ([h (in-list headers)]
-          [s (in-list data-series)])
-      (let ((col (make-series h #:data s)))
-        (df-add-series! df col))))
-
-  df)
+  (if (<= num-rows 0)
+      (make-data-frame)   ; return an empty data frame if no rows were fetched
+      (let ([data-series
+             (for/list ((x (in-range (length headers))))
+               (make-vector num-rows #f))])
+        (for ([row rows]
+              [x (in-range num-rows)])
+          (for ([series data-series]
+                [y (in-range (length data-series))])
+            (let ((val (vector-ref row y)))
+              (vector-set! series x (if (sql-null? val) #f val)))))
+        (define series
+          (for/list ([h (in-list headers)]
+                     [s (in-list data-series)])
+            (make-series h #:data s)))
+        (make-data-frame #:series series))))
 
 
 ;;............................................................. provides ....

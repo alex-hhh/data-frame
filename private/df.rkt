@@ -3,7 +3,7 @@
 ;; df.rkt -- data frame implementation and basic routines
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018, 2021, 2023 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2021, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -45,11 +45,19 @@
    ))
 
 ;; Construct an empty data frame
-(define (make-data-frame)
+(define (make-data-frame #:series (series null))
+  (define initial-series
+    (let ([slen (if (null? series) 0 (series-size (car series)))])
+      (make-hash
+       (for/list ([s (in-list series)])
+         (unless (equal? (series-size s) slen)
+           (df-raise "make-data-frame (\"~a\"): bad series length ~a, expecting ~a"
+                     (series-name s) (series-size s) slen))
+         (cons (series-name s) s)))))
   (data-frame
    (make-semaphore 1)
    #f
-   (make-hash)
+   initial-series
    (make-hash)
    (make-hash)
    (make-hash)))
@@ -1229,7 +1237,7 @@
           less-than-fn/c)
 
 (provide/contract
- (make-data-frame (-> data-frame?))
+ (make-data-frame (->* () (#:series (listof series?)) data-frame?))
  (df-series-names (-> data-frame? (listof string?)))
  (df-property-names (-> data-frame? (listof symbol?)))
  (df-contains? (->* (data-frame?) () #:rest (listof string?) boolean?))
