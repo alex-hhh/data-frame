@@ -3,7 +3,7 @@
 ;; df.rkt -- data frame implementation and basic routines
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018, 2021, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2021, 2023, 2024, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -908,7 +908,7 @@
                               . series)
   (if filter-fn
       (let ([generator (keyword-apply
-                        in-data-frame/by-index
+                        in-data-frame/by-index/as-vector
                         null null
                         df series #:index index-name #:from from #:to to)])
         (for/vector ([d generator] #:when (filter-fn d)) d))
