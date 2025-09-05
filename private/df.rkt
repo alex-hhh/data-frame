@@ -908,7 +908,7 @@
                               . series)
   (if filter-fn
       (let ([generator (keyword-apply
-                        in-data-frame/by-index/as-vector
+                        in-data-frame/by-index*/as-vector
                         null null
                         df series #:index index-name #:from from #:to to)])
         (for/vector ([d generator] #:when (filter-fn d)) d))

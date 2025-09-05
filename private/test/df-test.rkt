@@ -3,7 +3,7 @@
 ;; df-test.rkt -- tests for data-frame.rkt
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018, 2020, 2021, 2023, 2024 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2020, 2021, 2023, 2024, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -824,7 +824,13 @@
             #(#(3 1) #(2 2) #(4 0) #(1 3)))
      (check equal? (df-select*/by-index* df "c0" "c1" #:index "i1"
                                          #:from '("Alpha" 2) #:to '("Omega" 1))
-            #(#(2 2) #(4 0))))
+            #(#(2 2) #(4 0)))
+     ;; having a filter triggers a slightly different code path...
+     (check equal? (df-select*/by-index* df "c0" "c1" #:index "i1"
+                                         #:from '("Alpha" 2) #:to '("Omega" 1)
+                                         #:filter valid-only)
+            #(#(2 2) #(4 0)))
+     )
 
    (test-case "df-map variants"
      (define df (make-data-frame))
