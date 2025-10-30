@@ -1253,7 +1253,7 @@
      (df-add-series! df s2)
 
      (define text (call-with-output-string
-                   (lambda (out) (df-write/csv df out))))
+                   (lambda (out) (df-write/csv df out "s,1" "s,2"))))
      (check equal? text "\"s,1\",\"s,2\"\n1,\"one\"\n0.5,\"two\"\n3,\"th\"\"ree\"\n,\"#f\"\n5,\n")
 
      (define text2 (call-with-output-string
