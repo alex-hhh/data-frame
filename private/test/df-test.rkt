@@ -3,7 +3,7 @@
 ;; df-test.rkt -- tests for data-frame.rkt
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018, 2020, 2021, 2023, 2024, 2025 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2020, 2021, 2023, 2024, 2025, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -488,7 +488,7 @@
 
 ;;  (df-put-property (-> data-frame? symbol? any/c any/c))
 ;;  (df-get-property (->* (data-frame? symbol?) ((-> any/c)) any/c))
-;;  (df-del-property (-> data-frame? symbol? any/c))
+;;  (df-del-property (-> data-frame? symbol? any/c))
 ;;  (df-set-default-weight-series (-> data-frame? string? any/c))
 ;;  (df-get-default-weight-series (-> data-frame? (or/c #f string?)))
 ;;  (valid-only (-> any/c boolean?))
@@ -1243,6 +1243,13 @@
                                      (and (number? v) (even? v)))))))
        (check = (df-count-na df "one") 4)
        (check = (df-count-na df "two") 2)))
+
+   (test-case "read/unnamed-column (#16)"
+     ;; CSV files with an extra trailing "," in the header column get a column
+     ;; named "Unnamed 1"
+     (define df
+       (call-with-input-string "A,B,\n1,2\n3,4\n" df-read/csv))
+     (check-true (df-contains? df "Unnamed 1")))
 
    (test-case "df-write/csv: other"
      (define df (make-data-frame))

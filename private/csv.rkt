@@ -3,7 +3,7 @@
 ;; csv.rkt -- read and write data frames to CVS files
 ;;
 ;; This file is part of data-frame -- https://github.com/alex-hhh/data-frame
-;; Copyright (c) 2018, 2021 Alex Harsányi <AlexHarsanyi@gmail.com>
+;; Copyright (c) 2018, 2021, 2026 Alex Harsányi <AlexHarsanyi@gmail.com>
 ;;
 ;; This program is free software: you can redistribute it and/or modify it
 ;; under the terms of the GNU Lesser General Public License as published by
@@ -222,22 +222,24 @@
           (set! series
                 (for/list ([h (reverse first-row-cells)])
                   ;; Gracefully handle series with empty header names
-                  (let ((name (~a (decode h))))
-                    (unless name
-                      (set! name (~a "col" index))
-                      (set! index (add1 index)))
-                    (let loop ([suffix 1]
-                               [seen? (member name seen-header-names)])
-                      (when seen?
-                        (let ([candidate (format "~a (~a)" name suffix)])
-                          (if (member candidate seen-header-names)
-                              (loop (add1 suffix) #t)
-                              (set! name candidate)))))
-                    (set! seen-header-names (cons name seen-header-names))
-                    (make-series name #:capacity 256)))))
+                  (define name
+                    (let ([key (decode h)])
+                      (if key
+                          (~a key)
+                          (begin0 (~a "Unnamed " index)
+                            (set! index (add1 index))))))
+                  (let loop ([suffix 1]
+                             [seen? (member name seen-header-names)])
+                    (when seen?
+                      (let ([candidate (format "~a (~a)" name suffix)])
+                        (if (member candidate seen-header-names)
+                            (loop (add1 suffix) #t)
+                            (set! name candidate)))))
+                  (set! seen-header-names (cons name seen-header-names))
+                  (make-series name #:capacity 256))))
         (begin
           (set! series (for/list ([idx (in-range series-count)])
-                         (make-series (format "col~a" idx) #:capacity 256)))
+                         (make-series (format "Unnamed ~a" idx) #:capacity 256)))
           (for ([s (in-list series)] [v (in-list (reverse first-row-cells))])
             (unsafe-series-push-back! s (decode v)))))
     (set! series (reverse series))
