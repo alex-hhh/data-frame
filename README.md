@@ -1,7 +1,5 @@
 # data-frame
 
-[![Build Status](https://dev.azure.com/alexharsanyi0641/racket-packages/_apis/build/status/alex-hhh.data-frame?branchName=master)](https://dev.azure.com/alexharsanyi0641/racket-packages/_build/latest?definitionId=4&branchName=master)
-
 ## Installation
 
     raco pkg install data-frame
